@@ -1,0 +1,2455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit Performance — VBA Dashboard & Live Editor</title>
+<style>
+  :root{
+    --bg:#0b0f1a; --border:#1f2940; --text:#e5eaf5; --muted:#8c96ac;
+    --accent:#5d9cf6; --accent2:#217346; --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:24px 24px 60px;background:radial-gradient(circle at 20% 0%, #101a33 0%, var(--bg) 60%);
+       color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+       min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+  .wrap{width:100%;max-width:980px;display:flex;flex-direction:column;gap:14px;}
+  header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+  h1{font-size:20px;margin:0;letter-spacing:.3px;}
+  .sub{font-size:12px;color:var(--muted);margin-top:4px;}
+  .sub code{background:#182238;padding:1px 6px;border-radius:5px;color:#9fc3ff;font-size:11.5px;}
+  button{cursor:pointer;border:1px solid #2a3a5e;background:linear-gradient(180deg,#2b4a86,#1f3868);
+         color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:600;
+         letter-spacing:.3px;display:inline-flex;align-items:center;gap:8px;
+         transition:transform .08s,filter .2s;white-space:nowrap;}
+  button:hover{filter:brightness(1.15);}
+  button:active{transform:scale(.97);}
+  button.copied{background:linear-gradient(180deg,#1f8a5b,#157048);border-color:#2fbf84;}
+  textarea#codeBox{width:100%;height:55vh;min-height:340px;padding:16px 18px;border-radius:12px;
+           border:1px solid var(--border);background:#080c16;color:#cdd6ea;
+           font-family:'Cascadia Code','Consolas','Menlo','Courier New',monospace;
+           font-size:12.5px;line-height:1.55;resize:vertical;white-space:pre;overflow:auto;tab-size:4;}
+  textarea#codeBox:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(93,156,246,.15);}
+  .hint{font-size:11.5px;color:var(--muted);text-align:center;}
+
+  /* ============== VBA SECTION ============== */
+  .vba-section{
+    width:100%;max-width:1440px;margin-top:56px;
+    display:flex;flex-direction:column;gap:16px;
+  }
+  .vba-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;}
+  .vba-header h2{margin:0;font-size:22px;letter-spacing:.3px;}
+  .vba-header .subtitle{margin:6px 0 0;font-size:13px;color:var(--muted);max-width:680px;line-height:1.55;}
+  .vba-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .vba-controls .btn{
+    padding:9px 16px;font-size:12.5px;border-radius:8px;
+    background:linear-gradient(180deg,#232f4a,#182238);border:1px solid #2a3a5e;
+  }
+  .vba-controls .btn.primary{
+    background:linear-gradient(180deg,#2f7a4a,#1e5c34);border-color:#3a9c63;
+  }
+  .vba-controls .btn.primary:hover{filter:brightness(1.15);}
+  .vba-controls .btn.danger:hover{background:linear-gradient(180deg,#7a2f2f,#5c1e1e);border-color:#9c3a3a;}
+  .vba-layout{display:grid;grid-template-columns:1fr 1.25fr;gap:16px;}
+  @media (max-width:1050px){ .vba-layout{grid-template-columns:1fr;} }
+
+  .panel{border:1px solid var(--border);border-radius:14px;background:#0a0f1c;
+         overflow:hidden;display:flex;flex-direction:column;min-width:0;}
+  .panel-header{padding:10px 14px;background:#101828;border-bottom:1px solid var(--border);
+                display:flex;justify-content:space-between;align-items:center;gap:10px;
+                font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;
+                text-transform:uppercase;}
+  .panel-header .right{display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;}
+  .panel-header select{background:#182238;color:#cdd6ea;border:1px solid #2a3a5e;
+                       border-radius:6px;padding:4px 8px;font-size:12px;font-weight:500;outline:none;}
+  .panel-header select:focus{border-color:var(--accent);}
+
+  #vbaCode{width:100%;height:520px;min-height:380px;padding:14px 16px;border:none;outline:none;
+           background:#080c16;color:#e5eaf5;resize:vertical;
+           font-family:'Cascadia Code','Consolas','Menlo',monospace;
+           font-size:12.5px;line-height:1.6;tab-size:4;white-space:pre;overflow:auto;}
+  #vbaCode::selection{background:#264073;}
+
+  /* Excel frame */
+  .excel-frame{display:flex;flex-direction:column;background:#1e1e24;border-radius:0;}
+  .excel-formula-bar{display:flex;background:#2a2a32;color:#fff;border-bottom:1px solid #3a3a44;
+                     font-size:12px;align-items:center;}
+  .excel-formula-bar .cell-address{padding:6px 12px;border-right:1px solid #3a3a44;min-width:66px;
+                                   text-align:center;font-family:'Consolas',monospace;font-size:12px;}
+  .excel-formula-bar .fx{padding:6px 10px;border-right:1px solid #3a3a44;font-style:italic;
+                         color:#9a9aa6;font-family:'Georgia',serif;}
+  .excel-formula-bar .formula-content{padding:6px 12px;flex:1;overflow:hidden;
+                                      text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+  .excel-grid-wrapper{overflow:auto;max-height:460px;background:#fff;min-height:260px;}
+  .excel-grid{border-collapse:separate;border-spacing:0;font-size:12px;
+              font-family:'Calibri','Segoe UI',sans-serif;color:#111;width:max-content;min-width:100%;}
+  .excel-grid th.col-header,.excel-grid th.row-header{
+    background:#f2f2f2;color:#555;font-weight:500;text-align:center;
+    border-right:1px solid #d8d8d8;border-bottom:1px solid #d8d8d8;
+    padding:2px 6px;min-width:30px;font-size:11px;
+    position:sticky;user-select:none;
+  }
+  .excel-grid th.col-header{top:0;z-index:3;height:22px;}
+  .excel-grid th.row-header{left:0;z-index:3;width:34px;min-width:34px;}
+  .excel-grid th.corner{top:0;left:0;z-index:4;background:#e8e8e8;width:34px;min-width:34px;}
+  .excel-grid td{border-right:1px solid #e8e8e8;border-bottom:1px solid #e8e8e8;
+                 padding:2px 6px;min-width:80px;height:22px;
+                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+                 cursor:cell;vertical-align:middle;}
+  .excel-grid td.sel{outline:2px solid #217346;outline-offset:-2px;position:relative;z-index:1;}
+  .excel-grid td.num{text-align:right;}
+
+  .excel-tabs{display:flex;background:#2a2a32;border-top:1px solid #3a3a44;
+              padding:4px 6px;gap:2px;overflow-x:auto;align-items:center;}
+  .sheet-tab{background:#3a3a44;color:#ccc;border:none;padding:5px 14px;font-size:12px;
+             border-radius:4px 4px 0 0;cursor:pointer;font-weight:500;
+             transition:background .15s,color .15s;white-space:nowrap;}
+  .sheet-tab:hover{background:#454550;}
+  .sheet-tab.active{background:var(--accent2);color:#fff;}
+  .sheet-tab.add{background:transparent;color:#888;padding:5px 10px;font-size:15px;line-height:1;}
+  .sheet-tab.add:hover{background:#3a3a44;color:#fff;}
+
+  /* Output log */
+  .output-log{margin-top:12px;border:1px solid var(--border);border-radius:10px;
+              background:#080c16;max-height:180px;overflow:auto;display:flex;flex-direction:column;}
+  .log-header{position:sticky;top:0;background:#101828;padding:8px 14px;
+              font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;
+              border-bottom:1px solid var(--border);font-weight:700;display:flex;justify-content:space-between;}
+  .log-header .status{color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500;}
+  .log-header .status.ok{color:#7fd99a;}
+  .log-header .status.err{color:#ff8080;}
+  .log-body{padding:8px 14px;font-family:'Consolas',monospace;font-size:12px;color:#cdd6ea;flex:1;}
+  .log-entry{padding:3px 0;border-bottom:1px dashed rgba(255,255,255,.04);}
+  .log-entry.msgbox{color:#9fc3ff;}
+  .log-entry.debug{color:#a8e6a3;}
+  .log-entry.info{color:#8c96ac;font-style:italic;font-size:11px;}
+  .log-entry.error{color:#ffb0b0;background:rgba(255,80,80,.08);padding:6px 10px;
+                   border-radius:6px;margin:6px 0;border:1px solid rgba(255,80,80,.2);}
+
+  /* Limitations */
+  .limitations{border:1px solid var(--border);border-radius:14px;background:#0a0f1c;overflow:hidden;}
+  .limitations summary{padding:14px 20px;cursor:pointer;font-size:13px;font-weight:600;
+                       color:#9fc3ff;outline:none;user-select:none;list-style:none;}
+  .limitations summary::-webkit-details-marker{display:none;}
+  .limitations summary::before{content:'▸ ';display:inline-block;transition:transform .2s;}
+  .limitations[open] summary::before{transform:rotate(90deg);}
+  .limitations[open] summary{border-bottom:1px solid var(--border);}
+  .limitations .content{padding:16px 22px 22px;font-size:12.5px;color:#a8b1c5;line-height:1.75;
+                        display:grid;grid-template-columns:1fr 1fr;gap:20px 32px;}
+  @media (max-width:700px){ .limitations .content{grid-template-columns:1fr;} }
+  .limitations h4{color:#e5eaf5;margin:0 0 6px;font-size:12.5px;letter-spacing:.3px;}
+  .limitations ul{margin:0;padding-left:18px;}
+  .limitations li{margin:2px 0;}
+  .limitations code{background:#182238;padding:1px 5px;border-radius:4px;
+                    font-size:11px;color:#9fc3ff;font-family:'Consolas',monospace;}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:#1f8a5b;color:#fff;
+         padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;
+         box-shadow:0 10px 30px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;
+         transition:transform .3s,opacity .3s;z-index:9999;}
+  .toast.show{transform:translateY(0);opacity:1;}
+  .toast.err{background:#a83232;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Audit Performance — VBA Dashboard</h1>
+      <div class="sub">Paste into Excel VBA (Alt+F11 → Insert → Module) then run <code>ShowAuditDashboard</code></div>
+    </div>
+    <button id="copyBtn" onclick="copyCode()">📋 Copy Code</button>
+  </header>
+  <textarea id="codeBox" readonly spellcheck="false"></textarea>
+  <div class="hint">Tip: click the box, press Ctrl+A then Ctrl+C — or use the Copy button above.</div>
+</div>
+
+<!-- =========================================================
+     VBA CODE EDITOR + LIVE OUTPUT
+     ========================================================= -->
+<section class="vba-section">
+  <div class="vba-header">
+    <div>
+      <h2>Excel VBA Code Editor &amp; Live Preview</h2>
+      <p class="subtitle">Write or paste VBA macros, click <strong>Run Code</strong>, and watch the results appear in a live Excel-style worksheet grid. The interpreter supports a practical subset of VBA — see the feature list below.</p>
+    </div>
+    <div class="vba-controls">
+      <button id="vbaRunBtn" class="btn primary">▶ Run Code</button>
+      <button id="vbaClearBtn" class="btn">🗑 Clear</button>
+      <button id="vbaResetBtn" class="btn">↺ Reset</button>
+      <button id="vbaCopyBtn" class="btn">📋 Copy</button>
+      <button id="vbaDownloadBtn" class="btn">⬇ Download</button>
+    </div>
+  </div>
+
+  <div class="vba-layout">
+    <!-- Editor -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>VBA Code</span>
+        <div class="right">
+          <label for="vbaSubSelect" style="color:var(--muted);font-size:11px;text-transform:none;letter-spacing:0;">Run:</label>
+          <select id="vbaSubSelect" title="Sub to execute"></select>
+        </div>
+      </div>
+      <textarea id="vbaCode" spellcheck="false"></textarea>
+    </div>
+
+    <!-- Preview -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Excel Preview</span>
+        <div class="right" style="color:var(--muted);font-size:11px;">
+          <span id="vbaStatusPill">Ready</span>
+        </div>
+      </div>
+      <div class="excel-frame">
+        <div class="excel-formula-bar">
+          <div class="cell-address" id="xlAddr">A1</div>
+          <div class="fx">fx</div>
+          <div class="formula-content" id="xlFormula"></div>
+        </div>
+        <div class="excel-grid-wrapper">
+          <table class="excel-grid" id="excelGrid"></table>
+        </div>
+        <div class="excel-tabs" id="excelTabs"></div>
+      </div>
+      <div class="output-log">
+        <div class="log-header">
+          <span>Output Log</span>
+          <span class="status" id="logStatus">—</span>
+        </div>
+        <div class="log-body" id="outputLog">
+          <div class="log-entry info">Ready. Click "Run Code" to execute the macro.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details class="limitations">
+    <summary>✅ Supported VBA Features &amp; ⚠️ Limitations</summary>
+    <div class="content">
+      <div>
+        <h4>✅ Supported Syntax</h4>
+        <ul>
+          <li><code>Sub Name()…End Sub</code> and <code>Function Name()…End Function</code></li>
+          <li><code>Dim</code>, <code>Const</code>, <code>Set</code>, assignment</li>
+          <li><code>If / ElseIf / Else / End If</code> (single &amp; multi-line)</li>
+          <li><code>For … Next</code>, <code>For Each … Next</code></li>
+          <li><code>Do While / Until … Loop</code>, <code>While … Wend</code></li>
+          <li><code>Select Case … End Select</code></li>
+          <li><code>With … End With</code>, <code>Exit For/Do/Sub</code></li>
+          <li><code>MsgBox</code>, <code>Debug.Print</code>, <code>Call</code></li>
+        </ul>
+        <h4>✅ Object Model</h4>
+        <ul>
+          <li><code>Range("A1:C3")</code>, <code>Cells(r,c)</code>, <code>Rows</code>, <code>Columns</code></li>
+          <li><code>Worksheets</code>, <code>ActiveSheet</code>, <code>ThisWorkbook</code></li>
+          <li><code>.Value</code>, <code>.Formula</code>, <code>.NumberFormat</code></li>
+          <li><code>.Interior.Color</code>, <code>.Font.Bold / .Size / .Color / .Name / .Italic</code></li>
+          <li><code>.HorizontalAlignment</code>, <code>.VerticalAlignment</code>, <code>.Offset</code>, <code>.Resize</code></li>
+          <li><code>.Clear</code>, <code>.ClearContents</code>, <code>.Address</code></li>
+        </ul>
+      </div>
+      <div>
+        <h4>✅ Built-in Functions</h4>
+        <ul>
+          <li>Math: <code>Abs</code>, <code>Int</code>, <code>Round</code>, <code>Sqr</code>, <code>Rnd</code>, <code>Sin/Cos</code></li>
+          <li>String: <code>Len</code>, <code>Mid</code>, <code>Left</code>, <code>Right</code>, <code>UCase</code>, <code>LCase</code>, <code>Trim</code>, <code>Replace</code>, <code>InStr</code></li>
+          <li>Convert: <code>CStr</code>, <code>CInt</code>, <code>CLng</code>, <code>CDbl</code>, <code>CBool</code>, <code>Val</code></li>
+          <li>Date: <code>Now</code>, <code>Date</code>, <code>Year/Month/Day</code></li>
+          <li><code>Format</code>, <code>IIf</code>, <code>RGB</code>, <code>Chr</code>, <code>Asc</code>, <code>Array</code>, <code>UBound</code></li>
+          <li><code>Application.WorksheetFunction.Sum/Average/Min/Max/Count</code></li>
+        </ul>
+        <h4>⚠️ Not Supported</h4>
+        <ul>
+          <li>Shapes, Charts, PivotTables, UserForms, Ribbon</li>
+          <li>File I/O (<code>Open</code>, <code>Print#</code>, <code>SaveAs</code>), Windows API</li>
+          <li><code>On Error</code>, <code>GoTo</code> labels, <code>InputBox</code></li>
+          <li>Arrays beyond <code>Array()</code> and <code>ReDim</code>; no <code>ReDim Preserve</code></li>
+          <li>Custom types, Enums, Class modules, <code>ByRef</code> semantics</li>
+          <li>Complex nested formulas (simple <code>=A1+B1</code>, <code>=SUM(A1:A5)</code> are evaluated)</li>
+          <li>Infinite-loop safety: hard cap at ~500,000 iterations</li>
+        </ul>
+      </div>
+    </div>
+  </details>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<!-- =========================================================
+     Existing copy section — VBA Dashboard source
+     ========================================================= -->
+<script type="text/plain" id="rawCode">
+Option Explicit
+
+'============================================================
+'  AUDIT PERFORMANCE — full-screen dashboard (pure VBA)
+'  Paste this whole module into the VBA editor (Alt+F11 ->
+'  Insert -> Module), then run ShowAuditDashboard.
+'  Run RestoreExcelView any time to bring the ribbon back.
+'============================================================
+
+Private Const SHEET_NAME As String = "AuditDashboard"
+Private Const SHAPE_TAG  As String = "ADX_"
+
+Private Const DAY_NUMBER        As Long = 234
+Private Const TOTAL_CALLS       As Long = 24
+Private Const MONITORABLE_CALLS As Long = 17
+
+Sub ShowAuditDashboard()
+
+    On Error GoTo ErrHandler
+
+    Dim ws As Worksheet
+    Dim shp As Shape
+    Dim bgW As Single, bgH As Single
+    Dim cardL As Single, cardT As Single, cardW As Single, cardH As Single
+    Dim pad As Single, contentW As Single
+    Dim y As Single
+    Dim statW As Single, statH As Single, gap As Single
+    Dim card2X As Single
+    Dim pct As Double
+    Dim nonMon As Long
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+
+    Set ws = GetDashboardSheet()
+    ws.Activate
+    ClearDashboard ws
+
+    EnterKioskMode
+    DoEvents
+    bgW = Application.Width
+    bgH = Application.Height
+
+    Set shp = ws.Shapes.AddShape(msoShapeRectangle, 0, 0, bgW, bgH)
+    With shp
+        .Name = SHAPE_TAG & "Backdrop"
+        .Fill.ForeColor.RGB = RGB(6, 8, 14)
+        .Line.Visible = msoFalse
+        .Shadow.Visible = msoFalse
+    End With
+
+    cardW = 460: cardH = 620
+    cardL = (bgW - cardW) / 2
+    cardT = (bgH - cardH) / 2
+    pad = 28
+    contentW = cardW - pad * 2
+
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, cardL, cardT, cardW, cardH)
+    With shp
+        .Name = SHAPE_TAG & "Card"
+        .Adjustments.Item(1) = 0.05
+        .Fill.ForeColor.RGB = RGB(11, 15, 26)
+        .Line.ForeColor.RGB = RGB(26, 32, 48)
+        .Line.Weight = 1
+        .Shadow.Visible = msoTrue
+        .Shadow.OffsetX = 0
+        .Shadow.OffsetY = 10
+        .Shadow.ForeColor.RGB = RGB(0, 0, 0)
+        .Shadow.Transparency = 0.55
+    End With
+
+    Dim iconSize As Single: iconSize = 56
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, cardL + pad, cardT + pad, iconSize, iconSize)
+    With shp
+        .Name = SHAPE_TAG & "IconBox"
+        .Adjustments.Item(1) = 0.28
+        .Fill.ForeColor.RGB = RGB(41, 72, 140)
+        .Line.Visible = msoFalse
+    End With
+    AddLabel ws, SHAPE_TAG & "IconGlyph", cardL + pad, cardT + pad, iconSize, iconSize, _
+        ChrW(10003), 20, RGB(175, 205, 255), True, msoAlignCenter, msoAnchorMiddle
+
+    Dim titleX As Single: titleX = cardL + pad + iconSize + 14
+    AddLabel ws, SHAPE_TAG & "Title", titleX, cardT + pad - 2, 240, 20, _
+        "AUDIT PERFORMANCE", 14, RGB(255, 255, 255), True, msoAlignLeft, msoAnchorMiddle
+    AddLabel ws, SHAPE_TAG & "Subtitle", titleX, cardT + pad + 20, 240, 16, _
+        Spaced("DAILY QUALITY REVIEW"), 9, RGB(140, 150, 172), False, msoAlignLeft, msoAnchorMiddle
+
+    Dim badgeW As Single, badgeH As Single, badgeX As Single
+    badgeW = 80: badgeH = 28: badgeX = cardL + cardW - pad - badgeW
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, badgeX, cardT + pad, badgeW, badgeH)
+    With shp
+        .Name = SHAPE_TAG & "Badge"
+        .Adjustments.Item(1) = 0.5
+        .Fill.ForeColor.RGB = RGB(19, 30, 56)
+        .Line.Visible = msoFalse
+    End With
+    AddLabel ws, SHAPE_TAG & "BadgeText", badgeX, cardT + pad, badgeW, badgeH, _
+        "DAY " & DAY_NUMBER, 10, RGB(93, 156, 246), True, msoAlignCenter, msoAnchorMiddle
+
+    y = cardT + pad + iconSize + 22
+    AddDivider ws, SHAPE_TAG & "Div1", cardL + pad, y, contentW
+
+    y = y + 24
+    AddLabel ws, SHAPE_TAG & "DateLabel", cardL + pad, y, contentW, 16, _
+        Spaced("AUDIT DATE"), 9, RGB(140, 150, 172), True, msoAlignLeft, msoAnchorMiddle
+    y = y + 22
+    AddLabel ws, SHAPE_TAG & "DateValue", cardL + pad, y, contentW, 42, _
+        Format(Date, "mmmm dd, yyyy"), 26, RGB(255, 255, 255), True, msoAlignLeft, msoAnchorMiddle
+
+    y = y + 42 + 28
+    statH = 150: gap = 16: statW = (contentW - gap) / 2
+
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, cardL + pad, y, statW, statH)
+    With shp
+        .Name = SHAPE_TAG & "Stat1Box"
+        .Adjustments.Item(1) = 0.14
+        .Fill.ForeColor.RGB = RGB(17, 23, 38)
+        .Line.Visible = msoFalse
+    End With
+    AddLabel ws, SHAPE_TAG & "Stat1Label", cardL + pad + 16, y + 16, statW - 32, 16, _
+        Spaced("TOTAL CALLS"), 8.5, RGB(140, 150, 172), True, msoAlignLeft, msoAnchorMiddle
+    AddLabel ws, SHAPE_TAG & "Stat1Value", cardL + pad + 16, y + 46, statW - 32, 46, _
+        CStr(TOTAL_CALLS), 30, RGB(255, 255, 255), True, msoAlignLeft, msoAnchorMiddle
+    AddLabel ws, SHAPE_TAG & "Stat1Sub", cardL + pad + 16, y + 100, statW - 32, 34, _
+        "Calls audited", 9.5, RGB(140, 150, 172), False, msoAlignLeft, msoAnchorTop
+
+    card2X = cardL + pad + statW + gap
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, card2X, y, statW, statH)
+    With shp
+        .Name = SHAPE_TAG & "Stat2Box"
+        .Adjustments.Item(1) = 0.14
+        .Fill.ForeColor.RGB = RGB(17, 23, 38)
+        .Line.Visible = msoFalse
+    End With
+    AddLabel ws, SHAPE_TAG & "Stat2Label", card2X + 16, y + 16, statW - 32, 30, _
+        Spaced("MONITORABLE CALLS"), 8.5, RGB(140, 150, 172), True, msoAlignLeft, msoAnchorTop
+    AddLabel ws, SHAPE_TAG & "Stat2Value", card2X + 16, y + 50, statW - 32, 44, _
+        CStr(MONITORABLE_CALLS), 30, RGB(93, 156, 246), True, msoAlignLeft, msoAnchorMiddle
+    AddLabel ws, SHAPE_TAG & "Stat2Sub", card2X + 16, y + 100, statW - 32, 40, _
+        "Calls eligible for monitoring", 9.5, RGB(140, 150, 172), False, msoAlignLeft, msoAnchorTop
+
+    y = y + statH + 26
+    AddLabel ws, SHAPE_TAG & "ProgLabel", cardL + pad, y, contentW * 0.55, 18, _
+        Spaced("MONITORABLE CALLS"), 9, RGB(140, 150, 172), True, msoAlignLeft, msoAnchorMiddle
+    AddLabel ws, SHAPE_TAG & "ProgValue", cardL + pad + contentW * 0.55, y, contentW * 0.45, 18, _
+        MONITORABLE_CALLS & " / " & TOTAL_CALLS, 11, RGB(255, 255, 255), True, msoAlignRight, msoAnchorMiddle
+
+    y = y + 24
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, cardL + pad, y, contentW, 9)
+    With shp
+        .Name = SHAPE_TAG & "Track"
+        .Adjustments.Item(1) = 0.5
+        .Fill.ForeColor.RGB = RGB(30, 37, 55)
+        .Line.Visible = msoFalse
+    End With
+
+    pct = 0
+    If TOTAL_CALLS > 0 Then pct = MONITORABLE_CALLS / TOTAL_CALLS
+    If pct > 1 Then pct = 1
+    Set shp = ws.Shapes.AddShape(msoShapeRoundedRectangle, cardL + pad, y, contentW * pct, 9)
+    With shp
+        .Name = SHAPE_TAG & "Fill"
+        .Adjustments.Item(1) = 0.5
+        .Fill.ForeColor.RGB = RGB(93, 156, 246)
+        .Line.Visible = msoFalse
+    End With
+
+    y = y + 22
+    nonMon = TOTAL_CALLS - MONITORABLE_CALLS
+    AddLabel ws, SHAPE_TAG & "NonMon", cardL + pad, y, contentW, 18, _
+        nonMon & " calls are non-monitorable", 10, RGB(140, 150, 172), False, msoAlignLeft, msoAnchorMiddle
+
+    y = y + 32
+    AddDivider ws, SHAPE_TAG & "Div2", cardL + pad, y, contentW
+
+    y = y + 20
+    AddLabel ws, SHAPE_TAG & "Summary", cardL + pad, y, contentW, 18, _
+        Spaced("AUDIT SUMMARY / " & UCase(Format(Date, "mmmm yyyy"))), 9, RGB(140, 150, 172), False, msoAlignLeft, msoAnchorMiddle
+
+    Dim dia As Single: dia = 46
+    y = y + 34
+    Set shp = ws.Shapes.AddShape(msoShapeOval, cardL + cardW / 2 - dia / 2, y, dia, dia)
+    With shp
+        .Name = SHAPE_TAG & "ArrowChip"
+        .Fill.ForeColor.RGB = RGB(32, 38, 54)
+        .Line.Visible = msoFalse
+    End With
+    AddLabel ws, SHAPE_TAG & "ArrowGlyph", cardL + cardW / 2 - dia / 2, y, dia, dia, _
+        ChrW(8595), 16, RGB(205, 212, 226), True, msoAlignCenter, msoAnchorMiddle
+
+    Set shp = ws.Shapes.AddShape(msoShapeOval, bgW - 54, 14, 30, 30)
+    With shp
+        .Name = SHAPE_TAG & "Exit"
+        .Fill.ForeColor.RGB = RGB(24, 28, 40)
+        .Line.ForeColor.RGB = RGB(55, 62, 82)
+        .Line.Weight = 1
+        .TextFrame2.WordWrap = msoFalse
+        .TextFrame2.VerticalAnchor = msoAnchorMiddle
+        With .TextFrame2.TextRange
+            .Text = ChrW(215)
+            .Font.Size = 13
+            .Font.Fill.ForeColor.RGB = RGB(205, 212, 226)
+            .ParagraphFormat.Alignment = msoAlignCenter
+        End With
+        .OnAction = "RestoreExcelView"
+    End With
+
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+    Exit Sub
+
+ErrHandler:
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+    RestoreExcelView
+    MsgBox "Couldn't finish drawing the dashboard:" & vbCrLf & Err.Description, vbExclamation, "Audit Dashboard"
+
+End Sub
+
+Sub RestoreExcelView()
+    On Error Resume Next
+    With Application
+        .DisplayFullScreen = False
+        .DisplayFormulaBar = True
+        .DisplayStatusBar = True
+        .WindowState = xlNormal
+    End With
+    With ActiveWindow
+        .DisplayGridlines = True
+        .DisplayHeadings = True
+        .DisplayWorkbookTabs = True
+        .DisplayHorizontalScrollBar = True
+        .DisplayVerticalScrollBar = True
+    End With
+    On Error GoTo 0
+End Sub
+
+Private Function GetDashboardSheet() As Worksheet
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = ThisWorkbook.Worksheets(SHEET_NAME)
+    On Error GoTo 0
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+        ws.Name = SHEET_NAME
+    End If
+    ws.Cells.Interior.Color = RGB(6, 8, 14)
+    Set GetDashboardSheet = ws
+End Function
+
+Private Sub EnterKioskMode()
+    With Application
+        .WindowState = xlMaximized
+        .DisplayFullScreen = True
+        .DisplayFormulaBar = False
+        .DisplayStatusBar = False
+    End With
+    With ActiveWindow
+        .DisplayGridlines = False
+        .DisplayHeadings = False
+        .DisplayWorkbookTabs = False
+        .DisplayHorizontalScrollBar = False
+        .DisplayVerticalScrollBar = False
+        .Zoom = 100
+        .ScrollRow = 1
+        .ScrollColumn = 1
+    End With
+End Sub
+
+Private Sub ClearDashboard(ws As Worksheet)
+    Dim i As Long
+    For i = ws.Shapes.Count To 1 Step -1
+        If Left$(ws.Shapes(i).Name, Len(SHAPE_TAG)) = SHAPE_TAG Then ws.Shapes(i).Delete
+    Next i
+End Sub
+
+Private Sub AddLabel(ws As Worksheet, nm As String, l As Single, t As Single, w As Single, h As Single, _
+                      txt As String, sz As Single, clr As Long, bold As Boolean, _
+                      hAlign As MsoParagraphAlignment, vAlign As MsoVerticalAnchor)
+    Dim shp As Shape
+    Set shp = ws.Shapes.AddTextbox(msoTextOrientationHorizontal, l, t, w, h)
+    With shp
+        .Name = nm
+        .Fill.Visible = msoFalse
+        .Line.Visible = msoFalse
+        .TextFrame2.AutoSize = msoAutoSizeNone
+        .TextFrame2.WordWrap = msoTrue
+        .TextFrame2.MarginLeft = 0
+        .TextFrame2.MarginRight = 0
+        .TextFrame2.MarginTop = 0
+        .TextFrame2.MarginBottom = 0
+        .TextFrame2.VerticalAnchor = vAlign
+        With .TextFrame2.TextRange
+            .Text = txt
+            .Font.Name = "Segoe UI"
+            .Font.Size = sz
+            .Font.Bold = bold
+            .Font.Fill.ForeColor.RGB = clr
+            .ParagraphFormat.Alignment = hAlign
+        End With
+    End With
+End Sub
+
+Private Sub AddDivider(ws As Worksheet, nm As String, l As Single, t As Single, w As Single)
+    Dim shp As Shape
+    Set shp = ws.Shapes.AddLine(l, t, l + w, t)
+    With shp
+        .Name = nm
+        .Line.ForeColor.RGB = RGB(30, 36, 52)
+        .Line.Weight = 1
+    End With
+End Sub
+
+Private Function Spaced(s As String) As String
+    Dim i As Long, r As String
+    For i = 1 To Len(s)
+        r = r & Mid$(s, i, 1)
+        If i < Len(s) Then r = r & " "
+    Next i
+    Spaced = r
+End Function
+</script>
+
+<!-- =========================================================
+     VBA Interpreter + UI logic
+     ========================================================= -->
+<script>
+/* ============================================================
+   0. Small utilities
+   ============================================================ */
+function colToNum(col){ let n=0; col=col.toUpperCase(); for(let i=0;i<col.length;i++) n=n*26+(col.charCodeAt(i)-64); return n; }
+function numToCol(n){ let s=''; while(n>0){ const r=(n-1)%26; s=String.fromCharCode(65+r)+s; n=Math.floor((n-1)/26);} return s; }
+function parseAddr(addr){
+  const m = /^\$?([A-Za-z]+)\$?(\d+)$/.exec(addr.trim());
+  if (!m) return null;
+  return { col: colToNum(m[1]), row: parseInt(m[2], 10) };
+}
+function vbaColorToCSS(n){
+  if (n === null || n === undefined || n === '') return null;
+  if (typeof n === 'string') return n;
+  n = Math.floor(n);
+  const r = n & 0xFF, g = (n >> 8) & 0xFF, b = (n >> 16) & 0xFF;
+  return `rgb(${r},${g},${b})`;
+}
+function safeNum(v){ const n = Number(v); return isNaN(n) ? 0 : n; }
+
+/* ============================================================
+   1. Workbook model
+   ============================================================ */
+class VBACell {
+  constructor(){
+    this.value = undefined;
+    this.formula = null;
+    this.numFmt = '';
+    this.bg = null;
+    this.fg = null;
+    this.bold = false;
+    this.italic = false;
+    this.size = 11;
+    this.font = 'Calibri';
+    this.hAlign = null;
+    this.vAlign = null;
+    this.mergeCells = false;
+  }
+}
+class VBASheet {
+  constructor(name){
+    this.name = name;
+    this.cells = new Map();
+  }
+  ensure(addr){
+    if (!this.cells.has(addr)) this.cells.set(addr, new VBACell());
+    return this.cells.get(addr);
+  }
+  peek(addr){ return this.cells.get(addr); }
+  bounds(){
+    let maxR = 0, maxC = 0;
+    for (const [addr, c] of this.cells){
+      if (c.value === undefined && c.formula === null && !c.bg && !c.fg && !c.bold && !c.italic) continue;
+      const p = parseAddr(addr);
+      if (p){ if (p.row > maxR) maxR = p.row; if (p.col > maxC) maxC = p.col; }
+    }
+    return { maxRow: maxR, maxCol: maxC };
+  }
+}
+class VBAWorkbook {
+  constructor(){
+    this.sheets = [new VBASheet('Sheet1')];
+    this.activeIndex = 0;
+  }
+  get activeSheet(){ return this.sheets[this.activeIndex]; }
+  getSheetByName(name){
+    if (typeof name === 'number') return this.sheets[name-1];
+    return this.sheets.find(s => s.name.toLowerCase() === String(name).toLowerCase());
+  }
+  addSheet(name){
+    if (!name) {
+      let i = this.sheets.length + 1;
+      while (this.sheets.some(s => s.name === 'Sheet' + i)) i++;
+      name = 'Sheet' + i;
+    }
+    const s = new VBASheet(name);
+    this.sheets.push(s);
+    return s;
+  }
+}
+
+/* ============================================================
+   2. Errors
+   ============================================================ */
+class VBAParseError extends Error { constructor(msg, line){ super(msg); this.line = line; this.name = 'ParseError'; } }
+class VBARuntimeError extends Error { constructor(msg, line){ super(msg); this.line = line; this.name = 'RuntimeError'; } }
+class ExitSignal { constructor(what){ this.what = what; } }
+
+/* ============================================================
+   3. Tokenizer
+   ============================================================ */
+function tokenize(src){
+  const tokens = [];
+  let i = 0, line = 1;
+  while (i < src.length){
+    const c = src[i];
+    if (c === '\r'){ i++; continue; }
+    if (c === '\n'){ tokens.push({type:'NEWLINE', line}); line++; i++; continue; }
+    if (c === ' ' || c === '\t'){ i++; continue; }
+    if (c === "'"){ while (i < src.length && src[i] !== '\n') i++; continue; }
+    // line continuation "_" at end of line
+    if (c === '_' && (src[i+1] === '\n' || src[i+1] === '\r' || src[i+1] === ' ' || src[i+1] === '\t')){
+      let j = i + 1;
+      while (j < src.length && (src[j] === ' ' || src[j] === '\t')) j++;
+      if (src[j] === '\r' || src[j] === '\n'){ i = j; continue; }
+    }
+    if ((c >= '0' && c <= '9') || (c === '.' && src[i+1] >= '0' && src[i+1] <= '9')){
+      let j = i;
+      while (j < src.length && /[0-9.]/.test(src[j])) j++;
+      if (src[j] === 'e' || src[j] === 'E'){
+        let k = j + 1;
+        if (src[k] === '+' || src[k] === '-') k++;
+        if (src[k] >= '0' && src[k] <= '9'){ while (k < src.length && /[0-9]/.test(src[k])) k++; j = k; }
+      }
+      tokens.push({type:'NUMBER', value: parseFloat(src.slice(i, j)), line});
+      i = j; continue;
+    }
+    if (c === '"'){
+      let j = i + 1, s = '';
+      while (j < src.length){
+        if (src[j] === '"'){
+          if (src[j+1] === '"'){ s += '"'; j += 2; continue; }
+          j++; break;
+        }
+        if (src[j] === '\n') break;
+        s += src[j++];
+      }
+      tokens.push({type:'STRING', value: s, line});
+      i = j; continue;
+    }
+    if (/[A-Za-z_]/.test(c)){
+      let j = i + 1;
+      while (j < src.length && /[A-Za-z0-9_]/.test(src[j])) j++;
+      tokens.push({type:'IDENT', value: src.slice(i, j), line});
+      i = j; continue;
+    }
+    if (src.startsWith(':=', i)){ tokens.push({type:'OP', value:':=', line}); i += 2; continue; }
+    if (src.startsWith('<=', i) || src.startsWith('>=', i) || src.startsWith('<>', i)){
+      tokens.push({type:'OP', value: src.slice(i, i+2), line}); i += 2; continue;
+    }
+    if ('+-*/\\^&=<>(),.:;'.includes(c)){
+      if (c === ':' || c === ';'){ tokens.push({type:'NEWLINE', line}); i++; continue; }
+      tokens.push({type:'OP', value: c, line});
+      i++; continue;
+    }
+    // unknown char: skip silently
+    i++;
+  }
+  tokens.push({type:'EOF', line});
+  return tokens;
+}
+
+/* ============================================================
+   4. Parser
+   ============================================================ */
+const BINOP_PREC = {
+  '^':12, '*':10, '/':10, '\\':9, 'mod':8, '+':7, '-':7, '&':6,
+  '=':5, '<>':5, '<':5, '>':5, '<=':5, '>=':5, 'like':5, 'is':5,
+  'and':3, 'or':2, 'xor':1
+};
+
+class Parser {
+  constructor(tokens){ this.tokens = tokens; this.pos = 0; }
+  peek(o=0){ return this.tokens[this.pos+o] || this.tokens[this.tokens.length-1]; }
+  next(){ return this.tokens[this.pos++] || this.tokens[this.tokens.length-1]; }
+  isKw(name, t=this.peek()){ return t.type === 'IDENT' && t.value.toLowerCase() === name.toLowerCase(); }
+  atKw(name){ return this.isKw(name); }
+  acceptKw(name){ if (this.atKw(name)){ return this.next(); } return null; }
+  expectKw(name){ const t = this.next(); if (!this.isKw(name, t)) throw new VBAParseError(`Expected '${name}' at line ${t.line}, got '${t.value || t.type}'`, t.line); return t; }
+  atOp(op){ const t = this.peek(); return t.type === 'OP' && t.value === op; }
+  acceptOp(op){ if (this.atOp(op)){ return this.next(); } return null; }
+  expectOp(op){ if (!this.atOp(op)){ const t = this.peek(); throw new VBAParseError(`Expected '${op}' at line ${t.line}, got '${t.value || t.type}'`, t.line); } return this.next(); }
+  atNewlineOrEnd(){ const t = this.peek(); return t.type === 'NEWLINE' || t.type === 'EOF'; }
+  skipNewlines(){ while (this.peek().type === 'NEWLINE') this.next(); }
+  skipToNewline(){ while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') this.next(); }
+
+  atTerminator(list){
+    const t = this.peek();
+    if (t.type !== 'IDENT') return false;
+    const kw = t.value.toLowerCase();
+    for (const term of list){
+      const words = term.toLowerCase().split(/\s+/);
+      if (words.length === 1){
+        if (kw === words[0]) return true;
+      } else {
+        if (kw !== words[0]) continue;
+        let ok = true;
+        for (let k = 1; k < words.length; k++){
+          const nt = this.peek(k);
+          if (!nt || nt.type !== 'IDENT' || nt.value.toLowerCase() !== words[k]){ ok = false; break; }
+        }
+        if (ok) return true;
+      }
+    }
+    return false;
+  }
+
+  parseProgram(){
+    const items = [];
+    while (true){
+      this.skipNewlines();
+      if (this.peek().type === 'EOF') break;
+      const s = this.parseStatement();
+      if (s) items.push(s);
+      this.skipToNewline();
+    }
+    return items;
+  }
+
+  parseBlock(terminators){
+    const stmts = [];
+    while (true){
+      this.skipNewlines();
+      if (this.peek().type === 'EOF') break;
+      if (this.atTerminator(terminators)) break;
+      const s = this.parseStatement();
+      if (s) stmts.push(s);
+      this.skipToNewline();
+    }
+    return stmts;
+  }
+
+  parseStatement(){
+    this.skipNewlines();
+    const t = this.peek();
+    if (t.type === 'EOF' || t.type === 'NEWLINE'){ return null; }
+
+    if (t.type === 'IDENT'){
+      const kw = t.value.toLowerCase();
+      if (kw === 'sub') return this.parseSubOrFunction(false);
+      if (kw === 'function') return this.parseSubOrFunction(true);
+      if (kw === 'private' || kw === 'public'){
+        // skip modifier, parse rest of line
+        this.next();
+        this.skipNewlines();
+        return this.parseStatement();
+      }
+      if (kw === 'dim') return this.parseDim();
+      if (kw === 'const') return this.parseConst();
+      if (kw === 'set') return this.parseSet();
+      if (kw === 'if') return this.parseIf();
+      if (kw === 'for') return this.parseFor();
+      if (kw === 'do') return this.parseDo();
+      if (kw === 'while') return this.parseWhile();
+      if (kw === 'select') return this.parseSelect();
+      if (kw === 'with') return this.parseWith();
+      if (kw === 'exit'){
+        const line = t.line;
+        this.next();
+        const what = this.next().value;
+        this.skipToNewline();
+        return {type:'Exit', what, line};
+      }
+      if (kw === 'msgbox') return this.parseMsgBox();
+      if (kw === 'debug') return this.parseDebug();
+      if (kw === 'call'){
+        this.next();
+        const target = this.parsePostfix();
+        this.skipToNewline();
+        return {type:'Call', callee: target, args: [], line: t.line};
+      }
+      if (kw === 'rem'){ this.skipToNewline(); return null; }
+      if (kw === 'end'){ throw new VBAParseError(`Unexpected 'End' at line ${t.line}`, t.line); }
+      if (kw === 'option'){ this.skipToNewline(); return null; }
+      if (kw === 'on'){ this.skipToNewline(); return null; }
+      if (kw === 'redim'){ this.skipToNewline(); return {type:'Noop'}; }
+      if (kw === 'errmain'){ this.skipToNewline(); return null; }
+      // fall through
+    }
+    return this.parseExprStatement();
+  }
+
+  parseSubOrFunction(isFunction){
+    const startLine = this.peek().line;
+    this.next(); // Sub / Function
+    const nameTok = this.next();
+    if (nameTok.type !== 'IDENT') throw new VBAParseError(`Expected name at line ${nameTok.line}`, nameTok.line);
+    const name = nameTok.value;
+    const params = [];
+    if (this.atOp('(')){
+      this.next();
+      while (!this.atOp(')')){
+        while (this.peek().type === 'IDENT' && ['byval','byref','optional','paramarray'].includes(this.peek().value.toLowerCase())) this.next();
+        const pn = this.next();
+        if (pn.type !== 'IDENT') throw new VBAParseError(`Expected parameter name at line ${pn.line}`, pn.line);
+        let type = 'Variant';
+        if (this.atOp('(')){ this.next(); this.expectOp(')'); }
+        if (this.acceptKw('as')){ type = this.next().value; }
+        if (this.acceptOp('=')){ this.parseExpression(); }
+        params.push({ name: pn.value, type });
+        if (!this.acceptOp(',')) break;
+      }
+      this.expectOp(')');
+    }
+    this.skipToNewline();
+    const endKw = isFunction ? 'end function' : 'end sub';
+    const body = this.parseBlock([endKw]);
+    this.skipNewlines();
+    this.expectKw('end');
+    this.expectKw(isFunction ? 'function' : 'sub');
+    this.skipToNewline();
+    return { type: isFunction ? 'Function' : 'Sub', name, params, body, isFunction, line: startLine };
+  }
+
+  parseDim(){
+    this.next(); // Dim
+    const names = [];
+    while (true){
+      const nm = this.next();
+      if (nm.type !== 'IDENT') throw new VBAParseError(`Expected name after Dim at line ${nm.line}`, nm.line);
+      let type = 'Variant';
+      if (this.atOp('(')){ this.next(); while (!this.atOp(')')) this.next(); this.expectOp(')'); }
+      if (this.acceptKw('as')){ type = this.next().value; }
+      names.push({ name: nm.value, type });
+      if (!this.acceptOp(',')) break;
+    }
+    this.skipToNewline();
+    return { type:'Dim', names };
+  }
+
+  parseConst(){
+    this.next();
+    const nm = this.next();
+    this.expectOp('=');
+    const value = this.parseExpression();
+    this.skipToNewline();
+    return { type:'Const', name: nm.value, value };
+  }
+
+  parseSet(){
+    this.next();
+    const target = this.parsePostfix();
+    this.expectOp('=');
+    const value = this.parseExpression();
+    this.skipToNewline();
+    return { type:'Assign', target, value };
+  }
+
+  parseIf(){
+    const line = this.peek().line;
+    this.expectKw('if');
+    const cond = this.parseExpression();
+    this.expectKw('then');
+    if (!this.atNewlineOrEnd()){
+      // single-line
+      const thenStmts = [this.parseStatement()].filter(Boolean);
+      let elseStmts = [];
+      if (this.acceptKw('else')) elseStmts = [this.parseStatement()].filter(Boolean);
+      this.skipToNewline();
+      return { type:'If', cond, then: thenStmts, elseifs: [], else: elseStmts, line };
+    }
+    this.skipToNewline();
+    const thenBody = this.parseBlock(['elseif','else','end if']);
+    const elseifs = [];
+    let elseBody = [];
+    while (true){
+      this.skipNewlines();
+      if (this.atTerminator(['end if'])) break;
+      if (this.atKw('elseif')){
+        this.next();
+        const c = this.parseExpression();
+        this.expectKw('then');
+        this.skipToNewline();
+        const b = this.parseBlock(['elseif','else','end if']);
+        elseifs.push({ cond:c, body:b });
+      } else if (this.atKw('else')){
+        this.next();
+        this.skipToNewline();
+        elseBody = this.parseBlock(['end if']);
+      } else break;
+    }
+    this.expectKw('end'); this.expectKw('if'); this.skipToNewline();
+    return { type:'If', cond, then: thenBody, elseifs, else: elseBody, line };
+  }
+
+  parseFor(){
+    const line = this.peek().line;
+    this.expectKw('for');
+    if (this.atKw('each')){
+      this.next();
+      const varName = this.next().value;
+      this.expectKw('in');
+      const iter = this.parseExpression();
+      this.skipToNewline();
+      const body = this.parseBlock(['next']);
+      this.expectKw('next');
+      if (this.peek().type === 'IDENT') this.next();
+      this.skipToNewline();
+      return { type:'ForEach', var: varName, iter, body, line };
+    }
+    const varName = this.next().value;
+    this.expectOp('=');
+    const start = this.parseExpression();
+    this.expectKw('to');
+    const end = this.parseExpression();
+    let step = null;
+    if (this.acceptKw('step')) step = this.parseExpression();
+    this.skipToNewline();
+    const body = this.parseBlock(['next']);
+    this.expectKw('next');
+    if (this.peek().type === 'IDENT') this.next();
+    this.skipToNewline();
+    return { type:'For', var: varName, start, end, step, body, line };
+  }
+
+  parseDo(){
+    const line = this.peek().line;
+    this.expectKw('do');
+    let preCond = null, preUntil = false;
+    if (this.atKw('while')){ this.next(); preCond = this.parseExpression(); preUntil = false; }
+    else if (this.atKw('until')){ this.next(); preCond = this.parseExpression(); preUntil = true; }
+    this.skipToNewline();
+    const body = this.parseBlock(['loop']);
+    this.expectKw('loop');
+    let postCond = null, postUntil = false;
+    if (this.atKw('while')){ this.next(); postCond = this.parseExpression(); postUntil = false; }
+    else if (this.atKw('until')){ this.next(); postCond = this.parseExpression(); postUntil = true; }
+    this.skipToNewline();
+    return { type:'Do', preCond, preUntil, body, postCond, postUntil, line };
+  }
+
+  parseWhile(){
+    const line = this.peek().line;
+    this.expectKw('while');
+    const cond = this.parseExpression();
+    this.skipToNewline();
+    const body = this.parseBlock(['wend']);
+    this.expectKw('wend');
+    this.skipToNewline();
+    return { type:'While', cond, body, line };
+  }
+
+  parseSelect(){
+    const line = this.peek().line;
+    this.expectKw('select');
+    this.expectKw('case');
+    const expr = this.parseExpression();
+    this.skipToNewline();
+    const cases = [];
+    let elseBody = null;
+    while (true){
+      this.skipNewlines();
+      if (this.atTerminator(['end select'])) break;
+      if (this.acceptKw('case')){
+        if (this.acceptKw('else')){
+          this.skipToNewline();
+          elseBody = this.parseBlock(['case','end select']);
+        } else {
+          const values = [];
+          values.push(this.parseExpression());
+          while (this.acceptOp(',')) values.push(this.parseExpression());
+          this.skipToNewline();
+          const body = this.parseBlock(['case','end select']);
+          cases.push({ values, body });
+        }
+      } else break;
+    }
+    this.expectKw('end'); this.expectKw('select'); this.skipToNewline();
+    return { type:'Select', expr, cases, elseBody, line };
+  }
+
+  parseWith(){
+    const line = this.peek().line;
+    this.expectKw('with');
+    const obj = this.parseExpression();
+    this.skipToNewline();
+    const body = this.parseBlock(['end with']);
+    this.expectKw('end'); this.expectKw('with'); this.skipToNewline();
+    return { type:'With', obj, body, line };
+  }
+
+  parseMsgBox(){
+    const line = this.peek().line;
+    this.expectKw('msgbox');
+    const args = [];
+    if (!this.atNewlineOrEnd()){
+      args.push(this.parseExpression());
+      while (this.acceptOp(',')){
+        if (this.atNewlineOrEnd()) break;
+        args.push(this.parseExpression());
+      }
+    }
+    this.skipToNewline();
+    return { type:'MsgBox', args, line };
+  }
+
+  parseDebug(){
+    const line = this.peek().line;
+    this.expectKw('debug');
+    this.acceptOp('.');
+    const p = this.next();
+    if (p.value.toLowerCase() !== 'print') throw new VBAParseError(`Expected 'Print' at line ${p.line}`, p.line);
+    const parts = [];
+    if (!this.atNewlineOrEnd()){
+      parts.push({ sep: null, expr: this.parseExpression() });
+      while (this.atOp(';') || this.atOp(',')){
+        const sepTok = this.next();
+        if (this.atNewlineOrEnd()){ parts.push({ sep: sepTok.value, expr: null }); break; }
+        parts.push({ sep: sepTok.value, expr: this.parseExpression() });
+      }
+    }
+    this.skipToNewline();
+    return { type:'DebugPrint', parts, line };
+  }
+
+  parseExprStatement(){
+    const line = this.peek().line;
+    const target = this.parsePostfix();
+    if (this.atOp('=')){
+      this.next();
+      const value = this.parseExpression();
+      this.skipToNewline();
+      return { type:'Assign', target, value, line };
+    }
+    if (target.type === 'Call'){
+      this.skipToNewline();
+      return { type:'Call', callee: target.callee, args: target.args, line };
+    }
+    if (target.type === 'Var' && !this.atNewlineOrEnd()){
+      const args = [];
+      args.push(this.parseExpression());
+      while (this.acceptOp(',')) args.push(this.parseExpression());
+      this.skipToNewline();
+      return { type:'Call', callee: target, args, line };
+    }
+    this.skipToNewline();
+    return { type:'ExprStmt', expr: target, line };
+  }
+
+  // ----- expressions -----
+  parseExpression(minPrec = 0){
+    let left = this.parseUnary();
+    while (true){
+      const t = this.peek();
+      let op = null;
+      if (t.type === 'OP' && ['+','-','*','/','\\','^','&','=','<','>','<=','>=','<>'].includes(t.value)) op = t.value;
+      else if (t.type === 'IDENT'){
+        const k = t.value.toLowerCase();
+        if (['and','or','xor','mod','like','is'].includes(k)) op = k;
+      }
+      if (!op) break;
+      const prec = BINOP_PREC[op];
+      if (prec === undefined || prec < minPrec) break;
+      this.next();
+      const nextMin = (op === '^') ? prec : prec + 1;
+      const right = this.parseExpression(nextMin);
+      left = { type:'Binary', op, left, right };
+    }
+    return left;
+  }
+
+  parseUnary(){
+    const t = this.peek();
+    if (t.type === 'OP' && t.value === '-'){ this.next(); return { type:'Unary', op:'-', arg:this.parseExpression(11) }; }
+    if (t.type === 'OP' && t.value === '+'){ this.next(); return this.parseExpression(11); }
+    if (t.type === 'IDENT' && t.value.toLowerCase() === 'not'){ this.next(); return { type:'Unary', op:'not', arg:this.parseExpression(4) }; }
+    return this.parsePostfix();
+  }
+
+  parsePostfix(){
+    let expr = this.parsePrimary();
+    while (true){
+      if (this.atOp('.')){
+        this.next();
+        const nm = this.next();
+        if (nm.type !== 'IDENT') throw new VBAParseError(`Expected member name at line ${nm.line}`, nm.line);
+        expr = { type:'Member', obj: expr, name: nm.value };
+      } else if (this.atOp('(')){
+        this.next();
+        const args = [];
+        if (!this.atOp(')')){
+          args.push(this.parseExpression());
+          while (this.acceptOp(',')) args.push(this.parseExpression());
+        }
+        this.expectOp(')');
+        expr = { type:'Call', callee: expr, args };
+      } else break;
+    }
+    return expr;
+  }
+
+  parsePrimary(){
+    const t = this.peek();
+    if (t.type === 'NUMBER'){ this.next(); return { type:'Num', value:t.value }; }
+    if (t.type === 'STRING'){ this.next(); return { type:'Str', value:t.value }; }
+    if (t.type === 'OP' && t.value === '('){ this.next(); const e = this.parseExpression(); this.expectOp(')'); return e; }
+    if (t.type === 'OP' && t.value === '.'){ this.next(); const nm = this.next(); return { type:'WithBaseMember', name: nm.value }; }
+    if (t.type === 'IDENT'){
+      const k = t.value.toLowerCase();
+      if (k === 'true'){ this.next(); return { type:'Lit', value:true }; }
+      if (k === 'false'){ this.next(); return { type:'Lit', value:false }; }
+      if (k === 'nothing' || k === 'null'){ this.next(); return { type:'Lit', value:null }; }
+      if (k === 'empty'){ this.next(); return { type:'Lit', value:undefined }; }
+      this.next();
+      return { type:'Var', name:t.value };
+    }
+    throw new VBAParseError(`Unexpected token '${t.value || t.type}' at line ${t.line}`, t.line);
+  }
+}
+
+/* ============================================================
+   5. Constants
+   ============================================================ */
+const VBA_CONSTANTS = {
+  'vbred':255, 'vbgreen':65280, 'vbblue':16711680, 'vbblack':0, 'vbwhite':16777215,
+  'vbyellow':65535, 'vbcyan':16776960, 'vbmagenta':16711935,
+  'vbcrlf':'\r\n', 'vblf':'\n', 'vbcr':'\r', 'vbtab':'\t', 'vbnullstring':'', 'vbnullchar':'\0',
+  'xlup':-4162, 'xldown':-4121, 'xltoleft':-4159, 'xltoright':-4161,
+  'xlleft':-4131, 'xlcenter':-4108, 'xlright':-4152,
+  'xltop':-4160, 'xlbottom':-4107,
+  'xlcontinuous':1, 'xlthin':2, 'xlmedium':-4138, 'xlthick':4,
+  'xlnone':-4142, 'xlgeneral':1, 'xlautomatic':-4105,
+  'vbokonly':0, 'vbinformation':64, 'vbexclamation':48, 'vbcritical':16,
+  'vbquestion':32, 'vbyesno':4, 'vbokcancel':1, 'vbok':1, 'vbcancel':2
+};
+
+/* ============================================================
+   6. Object model
+   ============================================================ */
+class RangeRef {
+  constructor(interp, sheet, r1, c1, r2, c2){
+    this.interp = interp;
+    this.sheet = sheet;
+    this.r1 = Math.min(r1, r2); this.c1 = Math.min(c1, c2);
+    this.r2 = Math.max(r1, r2); this.c2 = Math.max(c1, c2);
+  }
+  cells(){
+    const out = [];
+    for (let r = this.r1; r <= this.r2; r++)
+      for (let c = this.c1; c <= this.c2; c++)
+        out.push(this.sheet.ensure(numToCol(c) + r));
+    return out;
+  }
+  addrs(){
+    const out = [];
+    for (let r = this.r1; r <= this.r2; r++)
+      for (let c = this.c1; c <= this.c2; c++)
+        out.push(numToCol(c) + r);
+    return out;
+  }
+  isSingle(){ return this.r1 === this.r2 && this.c1 === this.c2; }
+  flatValues(){
+    const out = [];
+    for (let r = this.r1; r <= this.r2; r++)
+      for (let c = this.c1; c <= this.c2; c++){
+        const cell = this.sheet.peek(numToCol(c) + r);
+        if (cell && cell.value !== undefined) out.push(cell.value);
+      }
+    return out;
+  }
+  get Value(){
+    if (this.isSingle()) {
+      const cell = this.sheet.peek(numToCol(this.c1) + this.r1);
+      return cell ? cell.value : undefined;
+    }
+    const rows = [];
+    for (let r = this.r1; r <= this.r2; r++){
+      const row = [];
+      for (let c = this.c1; c <= this.c2; c++){
+        const cell = this.sheet.peek(numToCol(c) + r);
+        row.push(cell ? cell.value : undefined);
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+  set Value(v){
+    const addrs = this.addrs();
+    if (Array.isArray(v)){
+      for (let ri = 0; ri < addrs.length; ri++){
+        const r = this.r1 + Math.floor(ri / (this.c2 - this.c1 + 1));
+        const c = this.c1 + (ri % (this.c2 - this.c1 + 1));
+        const rowIdx = r - this.r1, colIdx = c - this.c1;
+        let val;
+        if (v[rowIdx] && Array.isArray(v[rowIdx])) val = v[rowIdx][colIdx];
+        else val = v[ri];
+        const cell = this.sheet.ensure(numToCol(c) + r);
+        cell.value = val;
+        cell.formula = null;
+      }
+    } else {
+      for (const a of addrs){ const cell = this.sheet.ensure(a); cell.value = v; cell.formula = null; }
+    }
+  }
+  get Formula(){
+    if (this.isSingle()){ const c = this.sheet.peek(numToCol(this.c1) + this.r1); return c ? (c.formula || '') : ''; }
+    return '';
+  }
+  set Formula(v){
+    for (const a of this.addrs()){
+      const cell = this.sheet.ensure(a);
+      const s = String(v);
+      if (s.startsWith('=')) { cell.formula = s; cell.value = undefined; }
+      else { cell.value = s; cell.formula = null; }
+    }
+  }
+  get NumberFormat(){ return this.isSingle() ? (this.sheet.peek(numToCol(this.c1) + this.r1)?.numFmt || 'General') : 'General'; }
+  set NumberFormat(v){ for (const a of this.addrs()) this.sheet.ensure(a).numFmt = String(v); }
+
+  get Interior(){ return new InteriorRef(this.cells()); }
+  get Font(){ return new FontRef(this.cells()); }
+
+  get HorizontalAlignment(){
+    const a = this.sheet.peek(numToCol(this.c1) + this.r1)?.hAlign;
+    return a === 'center' ? -4108 : a === 'right' ? -4152 : -4131;
+  }
+  set HorizontalAlignment(v){
+    const map = { '-4108':'center', '-4152':'right', '-4131':'left', 'center':'center', 'right':'right', 'left':'left' };
+    for (const a of this.addrs()){ const cell = this.sheet.ensure(a); cell.hAlign = map[String(v)] || 'left'; }
+  }
+  get VerticalAlignment(){ return -4107; }
+  set VerticalAlignment(v){}
+
+  get WrapText(){ return false; }
+  set WrapText(v){}
+
+  get MergeCells(){ return this.sheet.peek(numToCol(this.c1) + this.r1)?.mergeCells || false; }
+  set MergeCells(v){ for (const a of this.addrs()) this.sheet.ensure(a).mergeCells = !!v; }
+
+  Offset(rowOff, colOff){
+    const ro = safeNum(rowOff), co = safeNum(colOff);
+    return new RangeRef(this.interp, this.sheet, this.r1 + ro, this.c1 + co, this.r2 + ro, this.c2 + co);
+  }
+  Resize(rows, cols){
+    const rr = Math.max(1, safeNum(rows)), cc = Math.max(1, safeNum(cols));
+    return new RangeRef(this.interp, this.sheet, this.r1, this.c1, this.r1 + rr - 1, this.c1 + cc - 1);
+  }
+  get Cells(){ const self = this; const fn = (r, c) => {
+    const rr = safeNum(r), cc = safeNum(c);
+    return new RangeRef(self.interp, self.sheet, self.r1 + rr - 1, self.c1 + cc - 1, self.r1 + rr - 1, self.c1 + cc - 1);
+  }; return fn; }
+  get Rows(){ return new RangeRef(this.interp, this.sheet, this.r1, this.c1, this.r1, this.c2); }
+  get Columns(){ return new RangeRef(this.interp, this.sheet, this.r1, this.c1, this.r2, this.c1); }
+  Clear(){ for (const a of this.addrs()){ this.sheet.cells.delete(a); } }
+  ClearContents(){ for (const a of this.addrs()){ const c = this.sheet.peek(a); if (c){ c.value = undefined; c.formula = null; } } }
+  get Address(){ return '$' + numToCol(this.c1) + '$' + this.r1 + (this.isSingle() ? '' : ':$' + numToCol(this.c2) + '$' + this.r2); }
+  Select(){}
+  Activate(){}
+  Copy(){}
+  End(dir){ return new RangeRef(this.interp, this.sheet, this.r1, this.c1, this.r1, this.c1); }
+}
+
+class InteriorRef {
+  constructor(cells){ this.cells = cells; }
+  get Color(){ return this.cells[0]?.bg ? this.cells[0].bg : null; }
+  set Color(v){ const css = vbaColorToCSS(v); for (const c of this.cells) c.bg = css; }
+  get ColorIndex(){ return 0; }
+  set ColorIndex(v){}
+  get Pattern(){ return 1; }
+  set Pattern(v){}
+}
+
+class FontRef {
+  constructor(cells){ this.cells = cells; }
+  get Bold(){ return this.cells[0]?.bold || false; }
+  set Bold(v){ for (const c of this.cells) c.bold = !!v; }
+  get Italic(){ return this.cells[0]?.italic || false; }
+  set Italic(v){ for (const c of this.cells) c.italic = !!v; }
+  get Size(){ return this.cells[0]?.size || 11; }
+  set Size(v){ for (const c of this.cells) c.size = safeNum(v) || 11; }
+  get Color(){ return this.cells[0]?.fg || null; }
+  set Color(v){ const css = vbaColorToCSS(v); for (const c of this.cells) c.fg = css; }
+  get Name(){ return this.cells[0]?.font || 'Calibri'; }
+  set Name(v){ for (const c of this.cells) c.font = String(v); }
+  get Underline(){ return false; }
+  set Underline(v){}
+}
+
+class WorksheetRef {
+  constructor(interp, sheet){ this.interp = interp; this.sheet = sheet; }
+  get Name(){ return this.sheet.name; }
+  set Name(v){ this.sheet.name = String(v); }
+  get Cells(){ const self = this; return (r, c) => {
+    const rr = safeNum(r), cc = safeNum(c);
+    return new RangeRef(self.interp, self.sheet, rr, cc, rr, cc);
+  }; }
+  get Range(){ const self = this; return (a, b) => self.interp.makeRangeOn(self.sheet, a, b); }
+  get Rows(){ const self = this; return (r) => {
+    const rr = safeNum(r);
+    return new RangeRef(self.interp, self.sheet, rr, 1, rr, 16384);
+  }; }
+  get Columns(){ const self = this; return (c) => {
+    const cc = typeof c === 'string' ? colToNum(c) : safeNum(c);
+    return new RangeRef(self.interp, self.sheet, 1, cc, 1048576, cc);
+  }; }
+  get UsedRange(){ return new RangeRef(this.interp, this.sheet, 1, 1, 10, 10); }
+  Activate(){ this.interp.workbook.activeIndex = this.interp.workbook.sheets.indexOf(this.sheet); }
+  Select(){}
+}
+
+/* ============================================================
+   7. Interpreter
+   ============================================================ */
+class Interpreter {
+  constructor(workbook, log){
+    this.workbook = workbook;
+    this.log = log; // array of {type, text}
+    this.subs = {};
+    this.iterationCount = 0;
+    this.maxIterations = 500000;
+    this.withStack = [];
+    this.appObj = {};
+    this.worksheetsCollection = {};
+    this.worksheetFunc = {
+      Sum: (...args) => this.flatVals(args).filter(x=>typeof x==='number').reduce((a,b)=>a+b, 0),
+      Average: (...args) => { const f = this.flatVals(args).filter(x=>typeof x==='number'); return f.length ? f.reduce((a,b)=>a+b,0)/f.length : 0; },
+      Min: (...args) => { const f = this.flatVals(args).filter(x=>typeof x==='number'); return f.length ? Math.min(...f) : 0; },
+      Max: (...args) => { const f = this.flatVals(args).filter(x=>typeof x==='number'); return f.length ? Math.max(...f) : 0; },
+      Count: (...args) => this.flatVals(args).filter(x=>typeof x==='number').length,
+      CountA: (...args) => this.flatVals(args).filter(x=>x!==undefined && x!==null && x!=='').length,
+      Round: (v,d) => Math.round(v * Math.pow(10, d||0)) / Math.pow(10, d||0)
+    };
+  }
+  flatVals(args){
+    const out = [];
+    const walk = (a) => {
+      if (a instanceof RangeRef) out.push(...a.flatValues());
+      else if (Array.isArray(a)) a.forEach(walk);
+      else out.push(a);
+    };
+    args.forEach(walk);
+    return out;
+  }
+  tick(){
+    this.iterationCount++;
+    if (this.iterationCount > this.maxIterations)
+      throw new VBARuntimeError('Execution halted: too many iterations (possible infinite loop)');
+  }
+  run(program, entryName){
+    for (const n of program){
+      if (n.type === 'Sub' || n.type === 'Function') this.subs[n.name.toLowerCase()] = n;
+    }
+    const names = Object.keys(this.subs);
+    if (names.length === 0) throw new VBARuntimeError('No Sub or Function found in code');
+    let sub = entryName ? this.subs[entryName.toLowerCase()] : this.subs[names[0]];
+    if (!sub) throw new VBARuntimeError(`Sub '${entryName}' not found`);
+    this.runSub(sub, []);
+  }
+  runSub(sub, args){
+    const scope = new Scope(null);
+    for (let i = 0; i < sub.params.length; i++) scope.declare(sub.params[i].name, args[i]);
+    if (sub.isFunction) scope.declare(sub.name, undefined);
+    try {
+      this.execStmts(sub.body, scope);
+    } catch (e){
+      if (e instanceof ExitSignal){ /* swallowed */ }
+      else throw e;
+    }
+    if (sub.isFunction) return scope.get(sub.name);
+  }
+  execStmts(stmts, scope){
+    for (const s of stmts){ this.execStmt(s, scope); }
+  }
+  execStmt(stmt, scope){
+    switch (stmt.type){
+      case 'Dim': {
+        for (const d of stmt.names) scope.declare(d.name, defaultForType(d.type));
+        return;
+      }
+      case 'Const': { scope.declare(stmt.name, this.evaluate(stmt.value, scope)); return; }
+      case 'Assign': {
+        const v = this.evaluate(stmt.value, scope);
+        this.assign(stmt.target, v, scope);
+        return;
+      }
+      case 'If': {
+        if (this.truthy(this.evaluate(stmt.cond, scope))) { this.execStmts(stmt.then, scope); return; }
+        for (const ei of stmt.elseifs){
+          if (this.truthy(this.evaluate(ei.cond, scope))){ this.execStmts(ei.body, scope); return; }
+        }
+        if (stmt.else) this.execStmts(stmt.else, scope);
+        return;
+      }
+      case 'For': {
+        const start = safeNum(this.evaluate(stmt.start, scope));
+        const end = safeNum(this.evaluate(stmt.end, scope));
+        const step = stmt.step ? safeNum(this.evaluate(stmt.step, scope)) : 1;
+        if (step === 0) throw new VBARuntimeError('For loop step cannot be zero', stmt.line);
+        for (let i = start; (step > 0 ? i <= end : i >= end); i += step){
+          this.tick();
+          scope.set(stmt.var, i);
+          try { this.execStmts(stmt.body, scope); }
+          catch (e){ if (e instanceof ExitSignal && e.what === 'For') break; throw e; }
+        }
+        return;
+      }
+      case 'ForEach': {
+        const iter = this.evaluate(stmt.iter, scope);
+        const items = this.iterate(iter);
+        for (const it of items){
+          this.tick();
+          scope.set(stmt.var, it);
+          try { this.execStmts(stmt.body, scope); }
+          catch (e){ if (e instanceof ExitSignal && e.what === 'For') break; throw e; }
+        }
+        return;
+      }
+      case 'Do': {
+        const runBody = () => {
+          try { this.execStmts(stmt.body, scope); return true; }
+          catch (e){ if (e instanceof ExitSignal && e.what === 'Do') return false; throw e; }
+        };
+        if (stmt.preCond){
+          while (true){
+            const c = this.truthy(this.evaluate(stmt.preCond, scope));
+            if (stmt.preUntil ? c : !c) break;
+            this.tick();
+            if (!runBody()) break;
+          }
+        } else if (stmt.postCond){
+          while (true){
+            this.tick();
+            if (!runBody()) break;
+            const c = this.truthy(this.evaluate(stmt.postCond, scope));
+            if (stmt.postUntil ? c : !c) break;
+          }
+        } else {
+          while (true){ this.tick(); if (!runBody()) break; }
+        }
+        return;
+      }
+      case 'While': {
+        while (this.truthy(this.evaluate(stmt.cond, scope))){
+          this.tick();
+          try { this.execStmts(stmt.body, scope); }
+          catch (e){ if (e instanceof ExitSignal && e.what === 'Do') break; throw e; }
+        }
+        return;
+      }
+      case 'Select': {
+        const val = this.evaluate(stmt.expr, scope);
+        let matched = false;
+        for (const c of stmt.cases){
+          for (const v of c.values){
+            if (this.equals(val, this.evaluate(v, scope))){ this.execStmts(c.body, scope); matched = true; break; }
+          }
+          if (matched) break;
+        }
+        if (!matched && stmt.elseBody) this.execStmts(stmt.elseBody, scope);
+        return;
+      }
+      case 'With': {
+        const obj = this.evaluate(stmt.obj, scope);
+        this.withStack.push(obj);
+        try { this.execStmts(stmt.body, scope); } finally { this.withStack.pop(); }
+        return;
+      }
+      case 'Exit': {
+        const what = String(stmt.what || '').toLowerCase();
+        if (what === 'sub' || what === 'function' || what === 'for' || what === 'do') throw new ExitSignal(what);
+        return;
+      }
+      case 'MsgBox': {
+        const msg = stmt.args.length ? this.toStr(this.evaluate(stmt.args[0], scope)) : '';
+        this.log.push({ type:'msgbox', text:'MsgBox: ' + msg });
+        return;
+      }
+      case 'DebugPrint': {
+        let s = '';
+        for (const p of stmt.parts){
+          if (p.sep === ',') s += '\t';
+          if (p.expr) s += this.toStr(this.evaluate(p.expr, scope));
+        }
+        this.log.push({ type:'debug', text:'> ' + s });
+        return;
+      }
+      case 'Call': { this.evalCall(stmt.callee, stmt.args, scope); return; }
+      case 'ExprStmt': { this.evaluate(stmt.expr, scope); return; }
+      case 'Noop': return;
+      default: throw new VBARuntimeError(`Unsupported statement: ${stmt.type}`);
+    }
+  }
+
+  evaluate(ast, scope){
+    switch (ast.type){
+      case 'Num': return ast.value;
+      case 'Str': return ast.value;
+      case 'Lit': return ast.value;
+      case 'Var': return this.resolveVar(ast.name, scope);
+      case 'WithBaseMember': {
+        const obj = this.withStack[this.withStack.length - 1];
+        if (obj === undefined) throw new VBARuntimeError(`'.' used outside With block`);
+        return this.getMember(obj, ast.name);
+      }
+      case 'Member': {
+        const obj = this.evaluate(ast.obj, scope);
+        return this.getMember(obj, ast.name);
+      }
+      case 'Call': return this.evalCall(ast.callee, ast.args, scope);
+      case 'Binary': {
+        const l = this.evaluate(ast.left, scope);
+        const r = this.evaluate(ast.right, scope);
+        return this.binop(ast.op, l, r);
+      }
+      case 'Unary': {
+        const v = this.evaluate(ast.arg, scope);
+        if (ast.op === '-') return -this.toNum(v);
+        if (ast.op === 'not') return !this.truthy(v);
+        throw new VBARuntimeError(`Unknown unary operator ${ast.op}`);
+      }
+      default: throw new VBARuntimeError(`Cannot evaluate node '${ast.type}'`);
+    }
+  }
+
+  evalCall(callee, argASTs, scope){
+    // direct name → global function or user sub
+    if (callee.type === 'Var'){
+      const name = callee.name;
+      const lower = name.toLowerCase();
+      const args = argASTs.map(a => this.evaluate(a, scope));
+      const g = GLOBAL_FUNCS[lower];
+      if (g) return g(args, this);
+      if (this.subs[lower]) return this.runSub(this.subs[lower], args);
+      if (scope.has(name)){
+        const v = scope.get(name);
+        if (Array.isArray(v)){
+          if (args.length === 1) return v[safeNum(args[0]) - 1];
+          if (args.length === 2) return (v[safeNum(args[0]) - 1] || [])[safeNum(args[1]) - 1];
+          throw new VBARuntimeError('Too many array indices');
+        }
+        if (typeof v === 'function') return v(...args);
+      }
+      throw new VBARuntimeError(`Sub or function '${name}' not found`);
+    }
+    const obj = this.evaluate(callee, scope);
+    const args = argASTs.map(a => this.evaluate(a, scope));
+    if (typeof obj === 'function') return obj(...args);
+    if (obj && typeof obj.__call === 'function') return obj.__call(args);
+    throw new VBARuntimeError(`Cannot call this expression`);
+  }
+
+  resolveVar(name, scope){
+    const lower = name.toLowerCase();
+    if (scope.has(name)) return scope.get(name);
+    if (Object.prototype.hasOwnProperty.call(VBA_CONSTANTS, lower)) return VBA_CONSTANTS[lower];
+    if (lower === 'activesheet') return new WorksheetRef(this, this.workbook.activeSheet);
+    if (lower === 'activecell') return this.makeCells(1, 1);
+    if (lower === 'selection') return this.makeCells(1, 1);
+    if (lower === 'thisworkbook') return this.workbook;
+    if (lower === 'application') return this.appObj;
+    if (lower === 'worksheets' || lower === 'sheets') return this.worksheetsCollection;
+    if (lower === 'activewindow') return this.appObj;
+    throw new VBARuntimeError(`Variable '${name}' is not defined`);
+  }
+
+  assign(target, value, scope){
+    if (target.type === 'Var'){
+      scope.set(target.name, value);
+      return;
+    }
+    if (target.type === 'Member'){
+      const obj = this.evaluate(target.obj, scope);
+      this.setMember(obj, target.name, value);
+      return;
+    }
+    if (target.type === 'WithBaseMember'){
+      const obj = this.withStack[this.withStack.length - 1];
+      if (obj === undefined) throw new VBARuntimeError(`'.' used outside With block`);
+      this.setMember(obj, target.name, value);
+      return;
+    }
+    throw new VBARuntimeError('Invalid assignment target');
+  }
+
+  getMember(obj, name){
+    if (obj === null || obj === undefined) throw new VBARuntimeError(`Cannot access '${name}' of Nothing`);
+    if (obj === this.appObj){
+      const n = name.toLowerCase();
+      if (n === 'width') return 800;
+      if (n === 'height') return 600;
+      if (n === 'screenupdating' || n === 'displayalerts' || n === 'enableevents') return true;
+      if (n === 'worksheetfunction') return this.worksheetFunc;
+      if (n === 'activesheet') return new WorksheetRef(this, this.workbook.activeSheet);
+      if (n === 'activecell') return this.makeCells(1, 1);
+      if (n === 'thisworkbook') return this.workbook;
+      return () => {};
+    }
+    if (obj === this.worksheetsCollection){
+      const n = name.toLowerCase();
+      if (n === 'add'){ return this.workbook.addSheet(); }
+      if (n === 'count') return this.workbook.sheets.length;
+      if (n === 'item') return (i) => this.workbook.sheets[safeNum(i)-1];
+      throw new VBARuntimeError(`'${name}' not supported on Worksheets collection`);
+    }
+    if (obj === this.workbook){
+      const n = name.toLowerCase();
+      if (n === 'worksheets' || n === 'sheets') return this.worksheetsCollection;
+      if (n === 'activesheet') return new WorksheetRef(this, this.workbook.activeSheet);
+      if (n === 'name') return 'Book1';
+      throw new VBARuntimeError(`'${name}' not supported on Workbook`);
+    }
+    // properties via getters
+    const desc = findPropDesc(obj, name);
+    if (desc){
+      if (desc.get) return desc.get.call(obj);
+      if (desc.value !== undefined){
+        const v = desc.value;
+        if (typeof v === 'function') return v.bind(obj);
+        return v;
+      }
+    }
+    // user objects could have method-style properties
+    if (obj[name] !== undefined){
+      const v = obj[name];
+      if (typeof v === 'function') return v.bind(obj);
+      return v;
+    }
+    throw new VBARuntimeError(`'${name}' is not a supported property or method`);
+  }
+
+  setMember(obj, name, value){
+    if (obj === null || obj === undefined) throw new VBARuntimeError(`Cannot set '${name}' on Nothing`);
+    if (obj === this.appObj) return; // ignore
+    const desc = findPropDesc(obj, name);
+    if (desc){
+      if (desc.set){ desc.set.call(obj, value); return; }
+      if (desc.get && !desc.set) throw new VBARuntimeError(`Property '${name}' is read-only`);
+    }
+    if (obj[name] !== undefined) { obj[name] = value; return; }
+    throw new VBARuntimeError(`Cannot set '${name}' — property not supported`);
+  }
+
+  // ----- workbook helpers -----
+  makeRange(a, b){
+    return this.makeRangeOn(this.workbook.activeSheet, a, b);
+  }
+  makeRangeOn(sheet, a, b){
+    const parseArg = (x) => {
+      if (x instanceof RangeRef) return { r1: x.r1, c1: x.c1, r2: x.r2, c2: x.c2 };
+      if (typeof x === 'string'){
+        const parts = x.split(':');
+        const p1 = parseAddr(parts[0]);
+        if (!p1) throw new VBARuntimeError(`Invalid cell address: '${x}'`);
+        if (parts.length === 1) return { r1: p1.row, c1: p1.col, r2: p1.row, c2: p1.col };
+        const p2 = parseAddr(parts[1]);
+        if (!p2) throw new VBARuntimeError(`Invalid cell address: '${x}'`);
+        return { r1: p1.row, c1: p1.col, r2: p2.row, c2: p2.col };
+      }
+      throw new VBARuntimeError('Range requires a cell address string');
+    };
+    const b1 = parseArg(a);
+    if (b !== undefined && b !== null){
+      const b2 = parseArg(b);
+      return new RangeRef(this, sheet, b1.r1, b1.c1, b2.r2, b2.c2);
+    }
+    return new RangeRef(this, sheet, b1.r1, b1.c1, b1.r2, b1.c2);
+  }
+  makeCells(r, c){
+    return this.makeCellsOn(this.workbook.activeSheet, r, c);
+  }
+  makeCellsOn(sheet, r, c){
+    const rr = safeNum(r), cc = typeof c === 'string' ? colToNum(c) : safeNum(c);
+    return new RangeRef(this, sheet, rr, cc, rr, cc);
+  }
+
+  iterate(obj){
+    if (Array.isArray(obj)) return obj;
+    if (obj instanceof RangeRef) return obj.flatValues();
+    throw new VBARuntimeError('For Each target is not iterable');
+  }
+
+  // ----- operations -----
+  binop(op, a, b){
+    switch (op){
+      case '+': return this.toNum(a) + this.toNum(b);
+      case '-': return this.toNum(a) - this.toNum(b);
+      case '*': return this.toNum(a) * this.toNum(b);
+      case '/': {
+        const d = this.toNum(b);
+        if (d === 0) throw new VBARuntimeError('Division by zero');
+        return this.toNum(a) / d;
+      }
+      case '\\': {
+        const d = Math.trunc(this.toNum(b));
+        if (d === 0) throw new VBARuntimeError('Division by zero');
+        return Math.trunc(this.toNum(a) / d);
+      }
+      case 'mod': {
+        const d = Math.trunc(this.toNum(b));
+        if (d === 0) throw new VBARuntimeError('Division by zero');
+        return Math.trunc(this.toNum(a)) % d;
+      }
+      case '^': return Math.pow(this.toNum(a), this.toNum(b));
+      case '&': return this.toStr(a) + this.toStr(b);
+      case '=': return this.equals(a, b);
+      case '<>': return !this.equals(a, b);
+      case '<': return this.toNum(a) < this.toNum(b);
+      case '>': return this.toNum(a) > this.toNum(b);
+      case '<=': return this.toNum(a) <= this.toNum(b);
+      case '>=': return this.toNum(a) >= this.toNum(b);
+      case 'and': return this.truthy(a) && this.truthy(b);
+      case 'or': return this.truthy(a) || this.truthy(b);
+      case 'xor': return !!this.truthy(a) !== !!this.truthy(b);
+      case 'like': return new RegExp('^' + String(b).replace(/\*/g,'.*').replace(/\?/g,'.') + '$').test(String(a));
+      case 'is': return a === b;
+      default: throw new VBARuntimeError(`Unknown operator '${op}'`);
+    }
+  }
+
+  equals(a, b){
+    if (a === b) return true;
+    if (a === null || a === undefined || b === null || b === undefined) return false;
+    if (typeof a === 'number' && typeof b === 'number') return a === b;
+    if (typeof a === 'number' && typeof b === 'string') return a === Number(b);
+    if (typeof a === 'string' && typeof b === 'number') return Number(a) === b;
+    return String(a).toLowerCase() === String(b).toLowerCase();
+  }
+  truthy(v){
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'string') return v.toLowerCase() === 'true';
+    if (typeof v === 'number') return v !== 0;
+    return !!v;
+  }
+  toNum(v){
+    if (v === null || v === undefined) return 0;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'boolean') return v ? -1 : 0;
+    if (typeof v === 'string'){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+    return 0;
+  }
+  toStr(v){
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'boolean') return v ? 'True' : 'False';
+    if (typeof v === 'number'){
+      if (Number.isInteger(v)) return String(v);
+      return String(Math.round(v * 1e10) / 1e10);
+    }
+    if (v instanceof Date) return formatDate(v, 'yyyy-mm-dd hh:nn:ss');
+    return String(v);
+  }
+}
+
+class Scope {
+  constructor(parent){ this.vars = new Map(); this.parent = parent; }
+  has(name){ name = name.toLowerCase(); return this.vars.has(name) || (this.parent && this.parent.has(name)); }
+  get(name){
+    name = name.toLowerCase();
+    if (this.vars.has(name)) return this.vars.get(name);
+    if (this.parent) return this.parent.get(name);
+    return undefined;
+  }
+  set(name, val){
+    name = name.toLowerCase();
+    if (this.vars.has(name)){ this.vars.set(name, val); return; }
+    if (this.parent && this.parent.has(name)){ this.parent.set(name, val); return; }
+    this.vars.set(name, val);
+  }
+  declare(name, val){ this.vars.set(name.toLowerCase(), val); }
+}
+
+function defaultForType(type){
+  const t = String(type).toLowerCase();
+  if (t === 'string') return '';
+  if (t === 'boolean') return false;
+  return undefined;
+}
+function findPropDesc(obj, name){
+  let o = obj;
+  while (o && o !== Object.prototype){
+    const d = Object.getOwnPropertyDescriptor(o, name);
+    if (d) return d;
+    o = Object.getPrototypeOf(o);
+  }
+  return null;
+}
+
+/* ============================================================
+   8. Global functions
+   ============================================================ */
+function formatDate(d, fmt){
+  const pad = n => String(n).padStart(2, '0');
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const tokenMap = {
+    'yyyy': d.getFullYear(), 'yy': String(d.getFullYear()).slice(-2),
+    'mmmm': months[d.getMonth()], 'mmm': months[d.getMonth()].slice(0,3),
+    'mm': pad(d.getMonth()+1), 'm': d.getMonth()+1,
+    'dddd': days[d.getDay()], 'ddd': days[d.getDay()].slice(0,3),
+    'dd': pad(d.getDate()), 'd': d.getDate(),
+    'hh': pad(d.getHours()), 'h': d.getHours(),
+    'nn': pad(d.getMinutes()), 'n': d.getMinutes(),
+    'ss': pad(d.getSeconds()), 's': d.getSeconds()
+  };
+  return fmt.replace(/yyyy|yy|mmmm|mmm|mm|m|dddd|ddd|dd|d|hh|h|nn|n|ss|s/g, tok => {
+    if (tok === 'n') return String(d.getMinutes());
+    if (tok === 's') return String(d.getSeconds());
+    return tokenMap[tok] !== undefined ? tokenMap[tok] : tok;
+  });
+}
+function formatNumber(v, fmt){
+  if (typeof v !== 'number') return String(v);
+  if (!fmt || fmt === 'General') return Number.isInteger(v) ? String(v) : String(Math.round(v*1e10)/1e10);
+  let val = v, prefix = '', suffix = '', percent = false, thousands = false, decimals = 0;
+  if (fmt.includes('%')){ percent = true; val *= 100; suffix = '%'; }
+  if (fmt.includes('$')) prefix = '$';
+  if (fmt.includes(',')) thousands = true;
+  const dotIdx = fmt.lastIndexOf('.');
+  if (dotIdx >= 0){
+    const after = fmt.slice(dotIdx + 1).replace(/[^0#]/g, '');
+    decimals = after.length;
+  }
+  let s = Math.abs(val).toFixed(decimals);
+  if (thousands){
+    const [ip, dp] = s.split('.');
+    s = ip.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (dp ? '.' + dp : '');
+  }
+  if (val < 0) s = '-' + s;
+  return prefix + s + suffix;
+}
+
+const GLOBAL_FUNCS = {
+  range: (args, i) => i.makeRange(args[0], args[1]),
+  cells: (args, i) => i.makeCells(args[0], args[1]),
+  worksheets: (args, i) => {
+    const s = i.workbook.getSheetByName(args[0]);
+    if (!s) throw new VBARuntimeError(`Worksheet '${args[0]}' not found`);
+    return new WorksheetRef(i, s);
+  },
+  sheets: (args, i) => {
+    const s = i.workbook.getSheetByName(args[0]);
+    if (!s) throw new VBARuntimeError(`Sheet '${args[0]}' not found`);
+    return new WorksheetRef(i, s);
+  },
+  rgb: (args) => (safeNum(args[0]) & 0xFF) + ((safeNum(args[1]) & 0xFF) << 8) + ((safeNum(args[2]) & 0xFF) << 16),
+  chr: (args) => String.fromCharCode(safeNum(args[0])),
+  chrw: (args) => String.fromCharCode(safeNum(args[0])),
+  asc: (args) => String(args[0] || '').charCodeAt(0),
+  len: (args) => String(args[0] === undefined || args[0] === null ? '' : args[0]).length,
+  ucase: (args) => String(args[0] || '').toUpperCase(),
+  lcase: (args) => String(args[0] || '').toLowerCase(),
+  trim: (args) => String(args[0] || '').trim(),
+  ltrim: (args) => String(args[0] || '').replace(/^\s+/, ''),
+  rtrim: (args) => String(args[0] || '').replace(/\s+$/, ''),
+  left: (args) => String(args[0] || '').slice(0, safeNum(args[1])),
+  right: (args) => { const n = safeNum(args[1]); const s = String(args[0]||''); return n >= s.length ? s : s.slice(-n); },
+  mid: (args) => { const s = String(args[0]||''); const st = Math.max(1, safeNum(args[1])); const len = args[2] !== undefined ? safeNum(args[2]) : undefined; return len !== undefined ? s.substr(st-1, len) : s.substr(st-1); },
+  replace: (args) => String(args[0]||'').split(String(args[1]||'')).join(String(args[2]||'')),
+  instr: (args) => {
+    if (args.length === 2) return String(args[0]||'').indexOf(String(args[1]||'')) + 1;
+    const start = Math.max(1, safeNum(args[0]));
+    return String(args[1]||'').indexOf(String(args[2]||''), start-1) + 1;
+  },
+  space: (args) => ' '.repeat(safeNum(args[0])),
+  string: (args) => String(args[1]||'').repeat(safeNum(args[0])),
+  strreverse: (args) => String(args[0]||'').split('').reverse().join(''),
+  cstr: (args, i) => i.toStr(args[0]),
+  cint: (args) => Math.trunc(safeNum(args[0])),
+  clng: (args) => Math.trunc(safeNum(args[0])),
+  cdbl: (args) => safeNum(args[0]),
+  csng: (args) => safeNum(args[0]),
+  cbool: (args, i) => i.truthy(args[0]),
+  cbyte: (args) => Math.max(0, Math.min(255, Math.trunc(safeNum(args[0])))),
+  cdate: (args) => args[0] instanceof Date ? args[0] : new Date(args[0]),
+  val: (args) => { const n = parseFloat(String(args[0]||'').trim()); return isNaN(n) ? 0 : n; },
+  abs: (args) => Math.abs(safeNum(args[0])),
+  int: (args) => Math.floor(safeNum(args[0])),
+  fix: (args) => Math.trunc(safeNum(args[0])),
+  round: (args) => { const d = args[1] !== undefined ? safeNum(args[1]) : 0; const p = Math.pow(10,d); return Math.round(safeNum(args[0]) * p) / p; },
+  sqr: (args) => Math.sqrt(safeNum(args[0])),
+  sgn: (args) => Math.sign(safeNum(args[0])),
+  sin: (args) => Math.sin(safeNum(args[0])),
+  cos: (args) => Math.cos(safeNum(args[0])),
+  tan: (args) => Math.tan(safeNum(args[0])),
+  atn: (args) => Math.atan(safeNum(args[0])),
+  exp: (args) => Math.exp(safeNum(args[0])),
+  log: (args) => Math.log(safeNum(args[0])),
+  rnd: () => Math.random(),
+  now: () => new Date(),
+  date: () => { const d = new Date(); d.setHours(0,0,0,0); return d; },
+  time: () => { const d = new Date(); return (d.getHours()*3600+d.getMinutes()*60+d.getSeconds())/86400; },
+  year: (args) => (args[0] instanceof Date ? args[0] : new Date(args[0])).getFullYear(),
+  month: (args) => (args[0] instanceof Date ? args[0] : new Date(args[0])).getMonth() + 1,
+  day: (args) => (args[0] instanceof Date ? args[0] : new Date(args[0])).getDate(),
+  hour: (args) => (args[0] instanceof Date ? args[0] : new Date(args[0])).getHours(),
+  minute: (args) => (args[0] instanceof Date ? args[0] : new Date(args[0])).getMinutes(),
+  second: (args) => (args[0] instanceof Date ? args[0] : new Date(args[0])).getSeconds(),
+  dateserial: (args) => new Date(safeNum(args[0]), safeNum(args[1])-1, safeNum(args[2])),
+  format: (args) => {
+    const v = args[0], f = String(args[1]||'');
+    if (v instanceof Date) return formatDate(v, f);
+    if (typeof v === 'number') return formatNumber(v, f);
+    return String(v === undefined ? '' : v);
+  },
+  iif: (args, i) => i.truthy(args[0]) ? args[1] : args[2],
+  isnumeric: (args) => typeof args[0] === 'number' || (!isNaN(parseFloat(args[0])) && isFinite(args[0])),
+  isempty: (args) => args[0] === undefined || args[0] === null || args[0] === '',
+  isnull: (args) => args[0] === null || args[0] === undefined,
+  isarray: (args) => Array.isArray(args[0]),
+  array: (args) => args.slice(),
+  ubound: (args) => Array.isArray(args[0]) ? args[0].length - 1 : 0,
+  lbound: () => 0,
+  typename: (args) => { const v = args[0]; if (v === null) return 'Null'; if (v === undefined) return 'Empty'; if (Array.isArray(v)) return 'Variant()'; return typeof v; },
+  abs_placeholder: () => {}
+};
+
+/* ============================================================
+   9. Sample VBA code for the editor
+   ============================================================ */
+const SAMPLE_VBA = `' ============================================================
+'  Welcome! This is a live VBA interpreter demo.
+'  Click "Run Code" to see results in the Excel grid.
+' ============================================================
+
+Sub BuildReport()
+    Dim i As Long
+    Dim total As Double
+
+    ' ---- Headers ----
+    Range("A1").Value = "Product"
+    Range("B1").Value = "Units"
+    Range("C1").Value = "Price"
+    Range("D1").Value = "Total"
+
+    ' ---- Data rows ----
+    Range("A2").Value = "Apples"
+    Range("B2").Value = 120
+    Range("C2").Value = 1.25
+
+    Range("A3").Value = "Bananas"
+    Range("B3").Value = 80
+    Range("C3").Value = 0.75
+
+    Range("A4").Value = "Cherries"
+    Range("B4").Value = 45
+    Range("C4").Value = 4.5
+
+    Range("A5").Value = "Dates"
+    Range("B5").Value = 60
+    Range("C5").Value = 3
+
+    ' ---- Calculate row totals ----
+    For i = 2 To 5
+        Cells(i, 4).Value = Cells(i, 2).Value * Cells(i, 3).Value
+        total = total + Cells(i, 4).Value
+    Next i
+
+    ' ---- Summary ----
+    Range("A7").Value = "Grand Total"
+    Range("A7").Font.Bold = True
+    Range("D7").Value = total
+    Range("D7").NumberFormat = "$#,##0.00"
+    Range("D7").Font.Bold = True
+
+    ' ---- Header formatting ----
+    Range("A1:D1").Font.Bold = True
+    Range("A1:D1").Interior.Color = RGB(91, 155, 213)
+    Range("A1:D1").Font.Color = RGB(255, 255, 255)
+    Range("A1:D1").HorizontalAlignment = -4108
+
+    ' ---- Highlight grand total row ----
+    Range("A7:D7").Interior.Color = RGB(255, 242, 204)
+
+    Debug.Print "Report generated."
+    Debug.Print "Grand total = " & total
+    MsgBox "Report complete! Total: " & Format(total, "$#,##0.00")
+End Sub
+
+Sub SimpleLoop()
+    Dim i As Long
+    For i = 1 To 10
+        Cells(i, 1).Value = i
+        Cells(i, 2).Value = i * i
+        Cells(i, 3).Value = "Row " & i
+    Next i
+    MsgBox "Squares 1-10 generated."
+End Sub
+`;
+
+/* ============================================================
+   10. UI wiring
+   ============================================================ */
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  // --- existing copy section ---
+  const rawEl = $('rawCode');
+  const codeBox = $('codeBox');
+  const codeText = rawEl.textContent.replace(/^\r?\n/, '');
+  codeBox.value = codeText;
+
+  window.copyCode = function(){
+    const text = codeBox.value;
+    const done = () => {
+      const btn = $('copyBtn');
+      btn.textContent = '✅ Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '📋 Copy Code'; btn.classList.remove('copied'); }, 1800);
+      showToast('Dashboard code copied!');
+    };
+    if (navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(text).then(done).catch(() => { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  };
+  function fallbackCopy(text){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+  }
+
+  function showToast(msg, isErr){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.toggle('err', !!isErr);
+    t.classList.add('show');
+    clearTimeout(t.__timer);
+    t.__timer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ================= VBA editor wiring =================
+  const vbaEditor = $('vbaCode');
+  const vbaSubSelect = $('vbaSubSelect');
+  const runBtn = $('vbaRunBtn');
+  const clearBtn = $('vbaClearBtn');
+  const resetBtn = $('vbaResetBtn');
+  const vbaCopyBtn = $('vbaCopyBtn');
+  const vbaDownloadBtn = $('vbaDownloadBtn');
+  const outputLog = $('outputLog');
+  const logStatus = $('logStatus');
+  const statusPill = $('vbaStatusPill');
+
+  let workbook = new VBAWorkbook();
+  let selectedAddr = 'A1';
+
+  vbaEditor.value = SAMPLE_VBA;
+
+  function setStatus(text, kind){
+    statusPill.textContent = text;
+    logStatus.textContent = text;
+    logStatus.className = 'status ' + (kind || '');
+  }
+
+  function clearLog(){
+    outputLog.innerHTML = '';
+  }
+  function logEntry(text, cls){
+    const d = document.createElement('div');
+    d.className = 'log-entry ' + (cls || '');
+    d.textContent = text;
+    outputLog.appendChild(d);
+  }
+
+  function compileAndGetSubs(source){
+    const tokens = tokenize(source);
+    const parser = new Parser(tokens);
+    return parser.parseProgram();
+  }
+
+  function populateSubSelect(program){
+    const names = program
+      .filter(n => n.type === 'Sub' || n.type === 'Function')
+      .map(n => n.name);
+    const prev = vbaSubSelect.value;
+    vbaSubSelect.innerHTML = '';
+    if (names.length === 0){
+      const opt = document.createElement('option');
+      opt.textContent = '(no Sub found)';
+      vbaSubSelect.appendChild(opt);
+    } else {
+      for (const n of names){
+        const opt = document.createElement('option');
+        opt.value = n; opt.textContent = n;
+        vbaSubSelect.appendChild(opt);
+      }
+      if (names.includes(prev)) vbaSubSelect.value = prev;
+    }
+  }
+
+  // update sub dropdown on edit
+  let debounceTimer;
+  vbaEditor.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      try {
+        const prog = compileAndGetSubs(vbaEditor.value);
+        populateSubSelect(prog);
+      } catch(e){ /* keep existing options */ }
+    }, 400);
+  });
+
+  // ===== Run =====
+  runBtn.addEventListener('click', () => {
+    clearLog();
+    setStatus('Running…', '');
+    workbook = new VBAWorkbook();
+    selectedAddr = 'A1';
+    const logs = [];
+
+    try {
+      const program = compileAndGetSubs(vbaEditor.value);
+      populateSubSelect(program);
+      const entry = vbaSubSelect.value || undefined;
+      const interp = new Interpreter(workbook, logs);
+      interp.run(program, entry);
+
+      // recalc formulas a few passes
+      recalcFormulas(workbook);
+
+      // dump logs
+      if (logs.length === 0){
+        logEntry('Execution complete — no MsgBox or Debug.Print output.', 'info');
+      } else {
+        for (const l of logs) logEntry(l.text, l.type);
+      }
+      logEntry('✓ Macro executed successfully.', 'info');
+      setStatus('Success', 'ok');
+      renderAll();
+    } catch (e){
+      const msg = (e && e.message) ? e.message : String(e);
+      logEntry('✗ ' + (e.name || 'Error') + ': ' + msg, 'error');
+      setStatus('Error', 'err');
+      showToast('VBA error: ' + msg, true);
+      renderAll();
+    }
+  });
+
+  // ===== Clear =====
+  clearBtn.addEventListener('click', () => {
+    vbaEditor.value = '';
+    vbaSubSelect.innerHTML = '';
+    clearLog();
+    logEntry('Editor cleared. Paste or write VBA code, then click Run.', 'info');
+    setStatus('Ready', '');
+  });
+
+  // ===== Reset =====
+  resetBtn.addEventListener('click', () => {
+    vbaEditor.value = SAMPLE_VBA;
+    workbook = new VBAWorkbook();
+    selectedAddr = 'A1';
+    clearLog();
+    logEntry('Reset to sample code and fresh workbook.', 'info');
+    setStatus('Ready', '');
+    try {
+      const prog = compileAndGetSubs(vbaEditor.value);
+      populateSubSelect(prog);
+    } catch(e){}
+    renderAll();
+  });
+
+  // ===== Copy =====
+  vbaCopyBtn.addEventListener('click', () => {
+    const text = vbaEditor.value;
+    if (navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('VBA code copied!');
+      }).catch(() => { fallbackCopy(text); showToast('VBA code copied!'); });
+    } else { fallbackCopy(text); showToast('VBA code copied!'); }
+  });
+
+  // ===== Download =====
+  vbaDownloadBtn.addEventListener('click', () => {
+    const blob = new Blob([vbaEditor.value], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Macro.bas';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Downloaded Macro.bas');
+  });
+
+  // ===== Grid rendering =====
+  function renderAll(){
+    renderGrid();
+    renderTabs();
+    updateFormulaBar();
+  }
+
+  function renderGrid(){
+    const grid = $('excelGrid');
+    grid.innerHTML = '';
+    const sheet = workbook.activeSheet;
+    const bounds = sheet.bounds();
+    const maxRow = Math.max(20, bounds.maxRow + 3);
+    const maxCol = Math.max(10, bounds.maxCol + 2);
+
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    const corner = document.createElement('th');
+    corner.className = 'corner';
+    hr.appendChild(corner);
+    for (let c = 1; c <= maxCol; c++){
+      const th = document.createElement('th');
+      th.className = 'col-header';
+      th.textContent = numToCol(c);
+      hr.appendChild(th);
+    }
+    thead.appendChild(hr);
+    grid.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    for (let r = 1; r <= maxRow; r++){
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.className = 'row-header';
+      th.textContent = r;
+      tr.appendChild(th);
+      for (let c = 1; c <= maxCol; c++){
+        const addr = numToCol(c) + r;
+        const td = document.createElement('td');
+        const cell = sheet.peek(addr);
+        if (cell){
+          if (cell.value !== undefined && cell.value !== null){
+            const formatted = cell.numFmt && typeof cell.value === 'number'
+              ? formatNumber(cell.value, cell.numFmt)
+              : (typeof cell.value === 'number' ? formatNumber(cell.value, 'General') : (cell.value instanceof Date ? formatDate(cell.value, 'yyyy-mm-dd') : String(cell.value)));
+            td.textContent = formatted;
+            if (typeof cell.value === 'number') td.classList.add('num');
+            if (typeof cell.value === 'boolean') td.textContent = cell.value ? 'TRUE' : 'FALSE';
+          }
+          if (cell.bg) td.style.background = cell.bg;
+          if (cell.fg) td.style.color = cell.fg;
+          if (cell.bold) td.style.fontWeight = '700';
+          if (cell.italic) td.style.fontStyle = 'italic';
+          if (cell.size) td.style.fontSize = cell.size + 'px';
+          if (cell.hAlign) td.style.textAlign = cell.hAlign;
+        }
+        if (addr === selectedAddr) td.classList.add('sel');
+        td.addEventListener('click', () => { selectedAddr = addr; renderAll(); });
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    grid.appendChild(tbody);
+  }
+
+  function renderTabs(){
+    const tabs = $('excelTabs');
+    tabs.innerHTML = '';
+    workbook.sheets.forEach((s, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'sheet-tab' + (idx === workbook.activeIndex ? ' active' : '');
+      btn.textContent = s.name;
+      btn.addEventListener('click', () => { workbook.activeIndex = idx; renderAll(); });
+      tabs.appendChild(btn);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'sheet-tab add';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add sheet';
+    addBtn.addEventListener('click', () => {
+      workbook.addSheet();
+      workbook.activeIndex = workbook.sheets.length - 1;
+      renderAll();
+    });
+    tabs.appendChild(addBtn);
+  }
+
+  function updateFormulaBar(){
+    $('xlAddr').textContent = selectedAddr;
+    const cell = workbook.activeSheet.peek(selectedAddr);
+    let content = '';
+    if (cell){
+      if (cell.formula) content = cell.formula;
+      else if (cell.value !== undefined && cell.value !== null) content = String(cell.value);
+    }
+    $('xlFormula').textContent = content;
+  }
+
+  // ===== Formula recalculation =====
+  function recalcFormulas(wb){
+    for (const sheet of wb.sheets){
+      let changed = true, passes = 0;
+      while (changed && passes < 8){
+        changed = false; passes++;
+        for (const [addr, cell] of sheet.cells){
+          if (cell.formula){
+            try {
+              const v = evalFormula(cell.formula, sheet);
+              if (cell.value !== v){ cell.value = v; changed = true; }
+            } catch(e){
+              if (cell.value !== '#ERROR'){ cell.value = '#ERROR'; changed = true; }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  function evalFormula(formula, sheet){
+    let s = String(formula).replace(/^=/, '').trim();
+    if (!s) throw new Error('empty');
+    // Range functions: SUM(A1:B3) etc.
+    s = s.replace(/\b(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA)\s*\(\s*([A-Za-z]+\d+)\s*:\s*([A-Za-z]+\d+)\s*\)/gi,
+      (m, fn, a, b) => {
+        const p1 = parseAddr(a), p2 = parseAddr(b);
+        if (!p1 || !p2) return '0';
+        const vals = [];
+        for (let r = Math.min(p1.row, p2.row); r <= Math.max(p1.row, p2.row); r++)
+          for (let c = Math.min(p1.col, p2.col); c <= Math.max(p1.col, p2.col); c++){
+            const cell = sheet.peek(numToCol(c) + r);
+            if (cell && typeof cell.value === 'number') vals.push(cell.value);
+          }
+        return fn.toUpperCase() + '(' + vals.join(',') + ')';
+      });
+    // single cell refs
+    s = s.replace(/\b([A-Za-z]+)(\d+)\b/g, (m, colStr, rowStr) => {
+      // skip function names — simple heuristic: if preceded by ( or ,
+      // Actually just check the surrounding characters via lastIndex
+      const before = s.slice(0, m.index).trim();
+      // If the regex match is part of a function name (like SUM), skip
+      if (/(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA)$/i.test(before)) return m;
+      const cell = sheet.peek(colStr.toUpperCase() + rowStr);
+      const v = cell ? cell.value : 0;
+      if (typeof v === 'number') return String(v);
+      if (typeof v === 'boolean') return v ? 'true' : 'false';
+      if (v === undefined || v === null || v === '') return '""';
+      return JSON.stringify(String(v));
+    });
+    // translate functions
+    s = s.replace(/\bSUM\s*\(/gi, 'sum(')
+         .replace(/\bAVERAGE\s*\(/gi, 'average(')
+         .replace(/\bMIN\s*\(/gi, 'min(')
+         .replace(/\bMAX\s*\(/gi, 'max(')
+         .replace(/\bCOUNT\s*\(/gi, 'count(');
+    // evaluate
+    const fn = new Function('sum','average','min','max','count', `
+      const sum = (...a) => a.flat(Infinity).filter(x=>typeof x==='number').reduce((p,c)=>p+c,0);
+      const average = (...a) => { const v = a.flat(Infinity).filter(x=>typeof x==='number'); return v.length ? v.reduce((p,c)=>p+c,0)/v.length : 0; };
+      const min = (...a) => { const v = a.flat(Infinity).filter(x=>typeof x==='number'); return v.length ? Math.min(...v) : 0; };
+      const max = (...a) => { const v = a.flat(Infinity).filter(x=>typeof x==='number'); return v.length ? Math.max(...v) : 0; };
+      const count = (...a) => a.flat(Infinity).filter(x=>typeof x==='number').length;
+      return (${s});
+    `);
+    const result = fn();
+    return result;
+  }
+
+  // initial render
+  renderAll();
+  try {
+    const prog = compileAndGetSubs(vbaEditor.value);
+    populateSubSelect(prog);
+  } catch(e){}
+
+})();
+</script>
+</body>
+</html>
